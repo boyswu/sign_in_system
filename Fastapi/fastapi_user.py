@@ -60,7 +60,7 @@ async def register_user(user_name: str = Form(...),
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
     file_content = await file.read()
-    people_face, similar = face_recognize(file_content)
+    _, people_face, similar = face_recognize(file_content)
     if similar is False:
         return JSONResponse(content="登录失败,请确认人脸是否录入!!!\n若已录入请面向摄像头切勿遮挡人脸!!!",
                             status_code=400)
@@ -281,27 +281,40 @@ async def sign_in(access_Token: dict = Depends(token.verify_token), file: Upload
     try:
         with conn.cursor() as cursor:
             file_content = await file.read()
-            _, similar = face_recognize(file_content)
+            name, _, similar = face_recognize(file_content)
             if similar is False:
-                return JSONResponse(content="登录失败,请确认人脸是否录入!!!\n若已录入请面向摄像头切勿遮挡人脸!!!",
-                                    status_code=400)
+                return JSONResponse(content={"msg": False,
+                                             "error": "登录失败,请确认人脸是否录入!!!\n若已录入请面向摄像头切勿遮挡人脸!!!",
+                                             "status_code": 400})
             elif similar == 0:
-                return JSONResponse(content="人员不在库中,请联系管理员!!!", status_code=400)
+                return JSONResponse(content={"msg": False, "error": "人员不在库中,请联系管理员!!!", "status_code": 400})
             if float(max(similar)) > 0.65:  # 当相似度大于0.65时
                 # 向数据库中插入签到记录
                 User_id = access_Token.get('sub')
                 # 获取当前时间
+                Create_time = datetime.now().strftime('%Y-%m-%d-%H:%M')
+                day_time = datetime.now().strftime('%Y-%m-%d')
+                sql = "SELECT end_time FROM sign_time WHERE id = '{}'".format(User_id)  # 防止重复签到
+                cursor.execute(sql)
+                result = cursor.fetchone()
+                if result is None:
+                    # 签到失败，提示用户 已签到
+                    return JSONResponse(content={"msg": False, "error": "您今天已经签到,请勿重复操作！", "status_code": 400})
+                else:
 
-                sql = "INSERT INTO sign_in (user_id, sign_time) VALUES ('{}', '{}')".format(User_id, datetime.now())
-                try:
-                    cursor.execute(sql)
-                    conn.commit()
-                    return JSONResponse(content={"{}签到成功".format(access_Token.get('sub'))}, status_code=200)
-                except Exception as e:
-                    conn.rollback()
-                    return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
-                finally:
-                    db_pool.close_connection(conn)
+                    # 向数据库中插入签到记录
+                    sql_1 = "INSERT INTO participate_time (id,date) VALUES ('{}', '{}')".format(User_id,day_time)
+                    sql_2 = "INSERT INTO sign_time (id,name,begin_time) VALUES ('{}', '{}', '{}')".format(User_id, name,
+                                                                                                        Create_time)
+                    try:
+                        cursor.execute(sql_1)
+                        cursor.execute(sql_2)
+                        conn.commit()
+                        return JSONResponse(content={"msg": True, "data": "{}签到成功".format(name), "status_code": 200})
+                    except Exception as e:
+                        conn.rollback()
+                        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+
             else:
                 # 登录失败，提示用户
                 return JSONResponse(content="登录失败,请确认人脸是否录入!!!\n若已录入请面向摄像头切勿遮挡人脸!!!",
@@ -309,3 +322,150 @@ async def sign_in(access_Token: dict = Depends(token.verify_token), file: Upload
 
     except Exception as e:
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+    finally:
+        db_pool.close_connection(conn)
+
+
+# 签退
+@router.post("/sign_out", summary="签退", description="签退", tags=['签到'])
+async def sign_out(access_Token: dict = Depends(token.verify_token)):
+    """
+    签退
+    """
+    db_pool = MySQLConnectionPool()
+    conn = db_pool.get_connection()
+    try:
+        with conn.cursor() as cursor:
+            User_id = access_Token.get('sub')
+            # 获取当前时间
+            Create_time = datetime.now().strftime('%Y-%m-%d-%H:%M')
+            # 查询同一天里的最后一次签到记录
+            sql = ("SELECT begin_time,end_time FROM sign_time WHERE id = '{}' AND DATE(begin_time) = DATE('{}') ORDER "
+                   "BY begin_time DESC LIMIT 1").format(User_id, Create_time)
+
+            cursor.execute(sql)
+            result = cursor.fetchall()
+            begin_time = result[0][0]
+            end_time = result[0][1]
+            if end_time is None and begin_time is not None:
+                # 向数据库中插入签退记录
+                sql = (
+                    "UPDATE sign_time SET end_time = '{}', duration = TIMEDIFF(NOW(), begin_time) WHERE id = '{}' AND "
+                    "begin_time = '{}'").format(Create_time, User_id, begin_time)
+
+                try:
+                    cursor.execute(sql)
+                    conn.commit()
+                    return JSONResponse(content={"msg": True, "data": "签退成功", "status_code": 200})
+                except Exception as e:
+                    conn.rollback()
+                    return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+                finally:
+                    db_pool.close_connection(conn)
+            elif result is None:
+                # 签退失败，提示用户
+                return JSONResponse(content={"msg": False, "error": "您今天还未签到,请先签到！", "status_code": 400})
+            else:
+                # 签退失败，提示用户
+                return JSONResponse(content={"msg": False, "error": "您今天已经签退,请勿重复操作！", "status_code": 400})
+
+    except Exception as e:
+        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+
+
+@router.get("/get_sign_time", summary="一天内签到时间截止", description="一天内签到时间截止", tags=['签到'])
+async def get_sign_time(access_Token: dict = Depends(token.verify_token)):
+    """
+    一天内签到时间截止 ,没有签到则返回未签到
+    """
+    pass
+
+
+#
+# from fastapi import BackgroundTasks
+# from sqlalchemy.orm import Session
+# from app import models, database
+#
+#
+# @router.on_event("shutdown")
+# async def update_sign_in_records(background_tasks: BackgroundTasks):
+#     background_tasks.add_task(archive_unfinished_sign_ins)
+#
+#
+# async def archive_unfinished_sign_ins():
+#     async with database.SessionLocal() as db:
+#         # Fetch users who have not signed out
+#         unfinished_sign_ins = db.query(models.SignIn).filter(models.SignIn.signed_out == False).all()
+#
+#         for sign_in in unfinished_sign_ins:
+#             # Update the sign_in records, e.g. incrementing late counts
+#             sign_in.late_count += 1
+#             sign_in.signed_out = True  # Mark as signed out
+#
+#         db.commit()
+
+
+# 添加或修改头像
+@router.post("/modify_avatar", summary="添加或修改头像", description="添加或修改头像", tags=['账户'])
+async def modify_avatar(modify: ToDoModel.modify_avatar, file: UploadFile = File(...)):
+    """
+    添加或修改头像
+    """
+    db_pool = MySQLConnectionPool()
+    conn = db_pool.get_connection()
+    try:
+        with conn.cursor() as cursor:
+            # Save the uploaded file
+            file_location = f"avatars/{file.filename}"
+            with open(file_location, "wb+") as file_object:
+                file_object.write(await file.read())
+
+            # Update the user's avatar in the database
+            cursor.execute("UPDATE users SET avatar = %s WHERE id = %s", (file_location, modify.user_id))
+            conn.commit()
+
+            return {"message": "Avatar updated successfully", "avatar_url": file_location}
+
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        conn.close()
+
+
+# 计算今日，本周学习时长
+@router.get("/get_study_time", summary="获取学习时长", description="获取学习时长", tags=['学习'])
+async def get_study_time(access_Token: dict = Depends(token.verify_token)):
+    """
+    获取学习时长
+    """
+    db_pool = MySQLConnectionPool()
+    conn = db_pool.get_connection()
+    User_id = access_Token.get('sub')
+    try:
+        with conn.cursor() as cursor:
+            # 查询同一天里的所有签到记录
+            sql = "SELECT begin_time,end_time FROM sign_time WHERE id = '{}' AND DATE(begin_time) = CURDATE()".format(User_id)
+            cursor.execute(sql)
+            result = cursor.fetchall()
+            if result is None:
+                return JSONResponse(content={"msg": False, "error": "您今天还未签到,请先签到！", "status_code": 400})
+            else:
+                # 计算学习时长
+                total_time = 0
+                for i in range(len(result)):
+                    if result[i][1] is not None:
+                        total_time += (datetime.strptime(result[i][1], '%Y-%m-%d %H:%M:%S') - datetime.strptime(
+                            result[i][0], '%Y-%m-%d %H:%M:%S')).seconds
+                # 计算学习时长     单位：分钟
+                total_time = total_time // 60
+                return JSONResponse(content={"msg": True, "data": {"total_time": total_time}, "status_code": 200})
+
+    except Exception as e:
+        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+    finally:
+        db_pool.close_connection(conn)
+
+
+
+
+
