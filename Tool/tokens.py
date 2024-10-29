@@ -12,7 +12,7 @@ from jose import jwt
 
 SECRET_KEY = "team2111"  # 请替换为你的密钥
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 20160  # 两周
+ACCESS_TOKEN_EXPIRE_MINUTES = 10080  # 一周
 
 
 def create_access_token(data: dict, expires_delta: timedelta = None):

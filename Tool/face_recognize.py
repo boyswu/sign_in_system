@@ -11,10 +11,12 @@ def select_face_sql():
     conn = db_pool.get_connection()
     try:
         with conn.cursor() as cursor:
-            sql = "SELECT face FROM user"
+            sql = "SELECT name, face FROM user"
             cursor.execute(sql)
             results = cursor.fetchall()
-            return results
+            name = results[0][0]
+            face = results[0][1]
+            return name, face
     except Exception as e:
         return False
     finally:
@@ -27,7 +29,7 @@ def face_recognize(file_content):
     detect_result = seetaFace.Detect(frame)  # 人脸检测，返回人脸检测信息数组
     Feature = []
     if detect_result.size == 0:  # 当未检测到人脸时
-        return False, False
+        return False, False, False
     for i in range(detect_result.size):  # 遍历每一个人的人脸数据
         face = detect_result.data[i].pos
         points = seetaFace.mark5(frame, face)  # 5点检测模型检测
@@ -35,9 +37,9 @@ def face_recognize(file_content):
         feature = seetaFace.get_feature_numpy(feature)  # 获取feature的numpy表示数据
         Feature.append(feature)
     people_face = feature.tostring()  # 将 NumPy 数组转换为 Python 列表
-    face = select_face_sql()
+    name, face = select_face_sql()
     if face is False:
-        return 0, 0
+        return 0, 0, 0
     similar = []
     for i in Feature:
         # 判断是否存在数据库中，如果存在使用numpy计算，比较人脸特征值相似度
@@ -46,4 +48,4 @@ def face_recognize(file_content):
             similar1 = seetaFace.compare_feature_np(feature_sql, i)  # 计算两个特征值之间的相似度
             similar.append(similar1)
             # print(similar)
-    return people_face, similar
+    return name, people_face, similar
