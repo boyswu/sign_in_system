@@ -34,15 +34,17 @@
 返回示例：
 ```
 {
-    "code": 200,
-    "message": "注册成功",
+    "msg": "True",
+    "data": "注册成功",
     "data": {
-        "id": 1,
         "username": "test",
+        "user_id": "123456",
         "email": "test@test.com"
-    }
-}   
+        },
+    "code": 200
+}
 ```
+
 2. 用户登录接口
 请求方式：POST
 
