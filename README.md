@@ -13,23 +13,24 @@
 
 请求方式：POST
 
-请求地址：/api/register
+请求地址：/register_mission
 
 请求参数：
 | 参数名 | 类型 | 是否必填 | 说明 |
 | --- | --- | --- | --- |
-| username | string | 是 | 用户名 |
+| username | string | 是 | 用户名 | 
+| user_id | string | 是 | 用户id |
 | password | string | 是 | 密码 |
 | email | string | 是 | 邮箱 |
+| file | file | 是 | 人脸照片 |
 
 
 返回参数：
 | 参数名 | 类型 | 说明 |
 | --- | --- | --- |
+| msg | string | True/False |
+| data | object | 提示信息 |
 | code | int | 状态码 |
-| message | string | 信息 |
-| data | object | 用户信息 |
-
 返回示例：
 ```
 {
@@ -45,8 +46,7 @@
 2. 用户登录接口
 请求方式：POST
 
-请求地址：/api/login
-
+请求地址：/login
 
 
 #### 参与贡献
