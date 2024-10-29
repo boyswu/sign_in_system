@@ -17,10 +17,11 @@
 
 请求参数：
 | 参数名 | 类型 | 是否必填 | 说明 |
-| --- | --- |
+| --- | --- | --- | --- |
 | username | string | 是 | 用户名 |
 | password | string | 是 | 密码 |
 | email | string | 是 | 邮箱 |
+
 
 返回参数：
 | 参数名 | 类型 | 说明 |
@@ -28,6 +29,7 @@
 | code | int | 状态码 |
 | message | string | 信息 |
 | data | object | 用户信息 |
+
 返回示例：
 ```
 {
