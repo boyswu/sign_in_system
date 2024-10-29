@@ -1,7 +1,6 @@
 from seetaface.api import *
 from connect_tool.sql import MySQLConnectionPool
 
-
 #  seetaface初始化
 init_mask = FACE_DETECT | FACERECOGNITION | LANDMARKER5
 seetaFace = SeetaFace(init_mask)  # 初始化
@@ -12,12 +11,13 @@ def select_face_sql():
     conn = db_pool.get_connection()
     try:
         with conn.cursor() as cursor:
-            sql = "SELECT name, face FROM user"
+            sql = "SELECT id,name, face FROM user"
             cursor.execute(sql)
             results = cursor.fetchall()
-            name = results[0][0]
-            face = results[0][1]
-            return name, face
+            user_id = results[0][0]
+            name = results[0][1]
+            face = results[0][2]
+            return user_id, name, face
     except Exception as e:
         return False
     finally:
@@ -38,7 +38,7 @@ def face_recognize(file_content):
         feature = seetaFace.get_feature_numpy(feature)  # 获取feature的numpy表示数据
         Feature.append(feature)
     people_face = feature.tostring()  # 将 NumPy 数组转换为 Python 列表
-    name, face = select_face_sql()
+    user_id, name, face = select_face_sql()
     if face is False:
         return 0, 0, 0
     similar = []
@@ -49,4 +49,4 @@ def face_recognize(file_content):
             similar1 = seetaFace.compare_feature_np(feature_sql, i)  # 计算两个特征值之间的相似度
             similar.append(similar1)
             # print(similar)
-    return name, people_face, similar
+    return user_id, name, people_face, similar
