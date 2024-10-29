@@ -1,6 +1,7 @@
 from seetaface.api import *
 from connect_tool.sql import MySQLConnectionPool
 
+
 #  seetaface初始化
 init_mask = FACE_DETECT | FACERECOGNITION | LANDMARKER5
 seetaFace = SeetaFace(init_mask)  # 初始化

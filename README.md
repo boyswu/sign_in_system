@@ -8,14 +8,44 @@
 
 使用fastapi快速搭建一套使用minio做为文件存储，MySQL做为数据库。
 
-#### 安装教程
+#### 接口文档
+1. 用户注册接口
 
-1.  xxxx
+请求方式：POST
+
+请求地址：/api/register
+
+请求参数：
+| 参数名 | 类型 | 是否必填 | 说明 |
+| --- | --- |
+| username | string | 是 | 用户名 |
+| password | string | 是 | 密码 |
+| email | string | 是 | 邮箱 |
+
+返回参数：
+| 参数名 | 类型 | 说明 |
+| --- | --- | --- |
+| code | int | 状态码 |
+| message | string | 信息 |
+| data | object | 用户信息 |
+返回示例：
+```
+{
+    "code": 200,
+    "message": "注册成功",
+    "data": {
+        "id": 1,
+        "username": "test",
+        "email": "test@test.com"
+    }
+}   
+```
+2. 用户登录接口
+请求方式：POST
+
+请求地址：/api/login
 
 
-#### 使用说明
-
-1.  xxxx
 
 #### 参与贡献
 
