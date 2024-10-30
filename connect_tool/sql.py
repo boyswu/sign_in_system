@@ -1,11 +1,11 @@
 import pymysql
 from dbutils.pooled_db import PooledDB
 
-host = '43.143.229.40'
+host = '8.147.233.239'
 port = 3306
 user = 'root'
-password = 'team2111..'
-database = 'networkdisk'
+password = 'team2111'
+database = 'sign_in_system'
 
 
 # def connect_sql():

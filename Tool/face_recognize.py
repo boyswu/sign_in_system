@@ -11,15 +11,18 @@ def select_face_sql():
     conn = db_pool.get_connection()
     try:
         with conn.cursor() as cursor:
-            sql = "SELECT id,name, face FROM user"
+            sql = "SELECT id, name, face FROM user"
             cursor.execute(sql)
             results = cursor.fetchall()
-            user_id = results[0][0]
-            name = results[0][1]
-            face = results[0][2]
-            return user_id, name, face
+            if results:
+                user_id = results[0][0]
+                name = results[0][1]
+                face = results[0][2]
+                return user_id, name, face
+            else:
+                return None, None, None  # 或其他逻辑来处理没有结果的情况
     except Exception as e:
-        return False
+        return False, False, False
     finally:
         db_pool.close_connection(conn)
 
@@ -30,7 +33,7 @@ def face_recognize(file_content):
     detect_result = seetaFace.Detect(frame)  # 人脸检测，返回人脸检测信息数组
     Feature = []
     if detect_result.size == 0:  # 当未检测到人脸时
-        return False, False, False
+        return False, False, False, False
     for i in range(detect_result.size):  # 遍历每一个人的人脸数据
         face = detect_result.data[i].pos
         points = seetaFace.mark5(frame, face)  # 5点检测模型检测
@@ -40,7 +43,7 @@ def face_recognize(file_content):
     people_face = feature.tostring()  # 将 NumPy 数组转换为 Python 列表
     user_id, name, face = select_face_sql()
     if face is False:
-        return 0, 0, 0
+        return 0, 0, 0, 0
     similar = []
     for i in Feature:
         # 判断是否存在数据库中，如果存在使用numpy计算，比较人脸特征值相似度
