@@ -389,8 +389,8 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
 
                     # 向数据库中插入签退记录
                     sql = (
-                        "UPDATE sign_time SET end_time = '{}', duration = '{}' WHERE id = '{}' "
-                        "AND begin_time = '{}'").format(Create_time, duration, User_id, begin_time)
+                        "UPDATE sign_time SET end_time = '{}', duration = '{}', status = '{}' WHERE id = '{}' "
+                        "AND begin_time = '{}'").format(Create_time, duration, "已签退", User_id, begin_time)
 
                     try:
                         cursor.execute(sql)
@@ -442,8 +442,7 @@ async def get_study_time(access_Token: dict = Depends(token.verify_token)):
                 for i in range(len(result)):
                     if result[i][0]:
                         total_time += float(result[i][0])
-                # # 计算学习时长     单位：小时
-                # total_time = total_time // 60 * 60
+
                 return JSONResponse(content={"msg": True, "data": {"total_time": total_time}, "status_code": 200})
 
     except Exception as e:
@@ -479,45 +478,12 @@ async def get_week_study_time(access_Token: dict = Depends(token.verify_token)):
                     if result[i][0]:  # 排除空值
 
                         total_time += float(result[i][0])
-                # # 计算学习时长     单位：小时
-                # total_time = total_time // 60 * 60
+
                 return JSONResponse(content={"msg": True, "data": {"total_time": total_time}, "status_code": 200})
     except Exception as e:
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
     finally:
         db_pool.close_connection(conn)
-
-
-@router.get("/get_sign_time", summary="一天内签到时间截止", description="一天内签到时间截止", tags=['签到'])
-async def get_sign_time(access_Token: dict = Depends(token.verify_token)):
-    """
-    一天内签到时间截止 ,没有签到则返回未签到
-    """
-    pass
-
-
-#
-# from fastapi import BackgroundTasks
-# from sqlalchemy.orm import Session
-# from app import models, database
-#
-#
-# @router.on_event("shutdown")
-# async def update_sign_in_records(background_tasks: BackgroundTasks):
-#     background_tasks.add_task(archive_unfinished_sign_ins)
-#
-#
-# async def archive_unfinished_sign_ins():
-#     async with database.SessionLocal() as db:
-#         # Fetch users who have not signed out
-#         unfinished_sign_ins = db.query(models.SignIn).filter(models.SignIn.signed_out == False).all()
-#
-#         for sign_in in unfinished_sign_ins:
-#             # Update the sign_in records, e.g. incrementing late counts
-#             sign_in.late_count += 1
-#             sign_in.signed_out = True  # Mark as signed out
-#
-#         db.commit()
 
 
 # 添加或修改头像
@@ -531,7 +497,7 @@ async def modify_avatar(access_Token: dict = Depends(token.verify_token), file: 
     User_id = access_Token.get('sub')
     try:
         with conn.cursor() as cursor:
-            # Save the uploaded file
+
             file_location = f"avatars/{file.filename}"
             with open(file_location, "wb+") as file_object:
                 file_object.write(await file.read())

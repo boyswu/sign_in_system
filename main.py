@@ -2,7 +2,10 @@ from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from Fastapi import fastapi_user
 import uvicorn
+import threading
 import fastapi_cdn_host
+from Tool.timer_task import run_schedule
+
 
 app = FastAPI()
 # monkey_patch_for_docs_ui(app)
@@ -28,5 +31,9 @@ app.include_router(fastapi_user.router)
 # if __name__ == '__main__':
 #     uvicorn.run(app, host="0.0.0.0", port=8000)
 
+
 if __name__ == '__main__':
+    # 启动调度任务的线程
+    scheduler_thread = threading.Thread(target=run_schedule)
+    scheduler_thread.start()
     uvicorn.run(app, host="0.0.0.0", port=8000)
