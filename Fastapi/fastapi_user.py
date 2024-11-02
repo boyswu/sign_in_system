@@ -279,30 +279,30 @@ async def sign_in(file: UploadFile = File(...)):
                 # 向数据库中插入签到记录
                 # 获取当前时间
                 Current_time = datetime.now()
-                day_time = datetime.now()
+
                 # 查询同一天里的最后一次签到记录
                 sql = (
                     "SELECT begin_time,end_time FROM sign_time WHERE id = '{}' AND DATE(begin_time) = DATE('{}') ORDER "
                     "BY begin_time DESC LIMIT 1").format(User_id, Current_time)
-                cursor.execute(sql)
-                result = cursor.fetchall()
-                if not result:
+                try:
+                    cursor.execute(sql)
+                    result = cursor.fetchall()
+                    if not result:
+                        sql_2 = "INSERT INTO sign_time (id,name,begin_time) VALUES ('{}', '{}', '{}')".format(User_id,
+                                                                                                              name,
+                                                                                                              Current_time)
+                        try:
+                            cursor.execute(sql_2)
+                            conn.commit()
+                            return JSONResponse(
+                                content={"msg": True, "data": "{}签到成功".format(name), "status_code": 200})
+                        except Exception as e:
+                            conn.rollback()
+                            return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
 
-                    # 向数据库中插入签到记录
-                    sql_1 = "INSERT INTO participate_time (id,name,date) VALUES ('{}', '{}', '{}')".format(User_id,
-                                                                                                           name,
-                                                                                                           day_time)
-                    sql_2 = "INSERT INTO sign_time (id,name,begin_time) VALUES ('{}', '{}', '{}')".format(User_id, name,
-                                                                                                          Current_time)
-                    try:
-                        cursor.execute(sql_1)
-                        cursor.execute(sql_2)
-                        conn.commit()
-                        return JSONResponse(
-                            content={"msg": True, "data": "{}签到成功".format(name), "status_code": 200})
-                    except Exception as e:
-                        conn.rollback()
-                        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+                except Exception as e:
+                    conn.rollback()
+                    return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
                 else:
                     print(result)
 
@@ -310,16 +310,13 @@ async def sign_in(file: UploadFile = File(...)):
                     end_time = result[0][1]
                     print(being_time, end_time)
 
-                    if being_time is None and end_time is None:
+                    if (being_time is None and end_time is None) or (being_time is not None and end_time is not None):
+
                         # 向数据库中插入签到记录
-                        sql_1 = "INSERT INTO participate_time (id,name,date) VALUES ('{}', '{}', '{}')".format(User_id,
-                                                                                                               name,
-                                                                                                               day_time)
                         sql_2 = "INSERT INTO sign_time (id,name,begin_time) VALUES ('{}', '{}', '{}')".format(User_id,
                                                                                                               name,
                                                                                                               Current_time)
                         try:
-                            cursor.execute(sql_1)
                             cursor.execute(sql_2)
                             conn.commit()
                             return JSONResponse(
@@ -327,31 +324,10 @@ async def sign_in(file: UploadFile = File(...)):
                         except Exception as e:
                             conn.rollback()
                             return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
-                    elif being_time is not None and end_time is not None:
-                        # 向数据库中插入签到记录
-                        sql_1 = "INSERT INTO participate_time (id,name,date) VALUES ('{}', '{}', '{}')".format(User_id,
-                                                                                                               name,
-                                                                                                               day_time)
-                        sql_2 = "INSERT INTO sign_time (id,name,begin_time) VALUES ('{}', '{}', '{}')".format(User_id,
-                                                                                                              name,
-                                                                                                              Current_time)
-                        try:
-                            cursor.execute(sql_1)
-                            cursor.execute(sql_2)
-                            conn.commit()
-                            return JSONResponse(
-                                content={"msg": True, "data": "{}签到成功".format(name), "status_code": 200})
-                        except Exception as e:
-                            conn.rollback()
-                            return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
-
-
                     else:
                         # 签到失败，提示用户
                         return JSONResponse(
                             content={"msg": False, "error": "您今天已经签到,请勿重复操作！", "status_code": 400})
-
-
             else:
                 # 登录失败，提示用户
                 return JSONResponse(content="登录失败,请确认人脸是否录入!!!\n若已录入请面向摄像头切勿遮挡人脸!!!",
@@ -381,44 +357,110 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
             # 获取当前时间
             Current_time = datetime.now()
             # 查询同一天里的最后一次签到记录
-            sql = ("SELECT begin_time,end_time FROM sign_time WHERE id = '{}' AND DATE(begin_time) = DATE('{}') ORDER "
-                   "BY begin_time DESC LIMIT 1").format(User_id, Current_time)
+            sql = ("SELECT begin_time,end_time,name FROM sign_time WHERE id = '{}' AND DATE(begin_time) = DATE('{}') "
+                   "ORDER BY begin_time DESC LIMIT 1").format(User_id, Current_time)
 
             cursor.execute(sql)
             result = cursor.fetchall()
             if result:
                 begin_time = result[0][0]
                 end_time = result[0][1]
+                name = result[0][2]
                 if end_time is None and begin_time is not None:
+                    # 查询
+                    sql_1 = "SELECT * FROM day_time WHERE id = '{}' AND DATE(begin_time) = DATE('{}')".format(User_id,
+                                                                                                              begin_time)
+                    try:
+                        cursor.execute(sql_1)
+                        result1 = cursor.fetchall()
+                    except Exception as e:
+                        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+                    # 查询学习时长
+                    sql_2 = "SELECT * FROM week_time WHERE YEARWEEK(date) = YEARWEEK(NOW())"
+                    try:
+                        cursor.execute(sql_2)
+                        result2 = cursor.fetchall()
+                    except Exception as e:
+                        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
                     now_time = datetime.now()  # 不使用 strftime，直接使用 datetime 对象
                     # 计算时间差
                     duration = now_time - begin_time
                     # 将时间差转换为小时
                     duration = duration.total_seconds() / 3600
                     duration = round(duration, 2)  # 保留两位小数
-
-                    # 向数据库中插入签退记录
-                    sql = (
-                        "UPDATE sign_time SET end_time = '{}', duration = '{}', status = '{}' WHERE id = '{}' "
-                        "AND begin_time = '{}'").format(Current_time, duration, "已签退", User_id, begin_time)
-                    sql_1 = "UPDATE participate_time SET duration = +'{}' WHERE id = '{}' AND date = DATE('{}')".format(
-                        duration, User_id, Current_time)
-
-                    try:
-                        cursor.execute(sql)
-                        cursor.execute(sql_1)
-                        conn.commit()
-                        return JSONResponse(content={"msg": True, "data": "签退成功", "status_code": 200})
-                    except Exception as e:
-                        conn.rollback()
-                        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
-
+                    if result1:
+                        # 向数据库中插入签退记录
+                        sql = (
+                            "UPDATE sign_time SET end_time = '{}', duration = '{}', status = '{}' WHERE id = '{}' "
+                            "AND begin_time = '{}'").format(Current_time, duration, "已签退", User_id, begin_time)
+                        sql_1 = "UPDATE day_time SET duration = +'{}' WHERE id = '{}' AND date = DATE('{}')".format(
+                            duration, User_id, Current_time)
+                        if result2:
+                            sql_2 = ("UPDATE week_time SET duration = +'{}' WHERE id = '{}' AND YEARWEEK(date) = "
+                                     "YEARWEEK(NOW())").format(duration, User_id, Current_time)
+                            try:
+                                cursor.execute(sql)
+                                cursor.execute(sql_1)
+                                cursor.execute(sql_2)
+                                conn.commit()
+                                return JSONResponse(content={"msg": True, "data": "签退成功", "status_code": 200})
+                            except Exception as e:
+                                conn.rollback()
+                                return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+                        else:
+                            sql_2 = "INSERT INTO week_time (id,name,date,duration) VALUES ('{}', '{}', '{}', '{}')".format(
+                                User_id,
+                                name,
+                                Current_time,
+                                0)
+                            try:
+                                cursor.execute(sql)
+                                cursor.execute(sql_1)
+                                cursor.execute(sql_2)
+                                conn.commit()
+                                return JSONResponse(content={"msg": True, "data": "签退成功", "status_code": 200})
+                            except Exception as e:
+                                conn.rollback()
+                                return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+                    else:
+                        # 向数据库中插入签退记录
+                        sql = (
+                            "UPDATE sign_time SET end_time = '{}', duration = '{}', status = '{}' WHERE id = '{}' "
+                            "AND begin_time = '{}'").format(Current_time, duration, "已签退", User_id, begin_time)
+                        sql_1 = "INSERT INTO day_time (id,name,date,duration) VALUES ('{}', '{}', '{}', '{}')".format(
+                            User_id, name, Current_time, 0)
+                        if result2:
+                            sql_2 = ("UPDATE week_time SET duration = +'{}' WHERE id = '{}' AND YEARWEEK(date) = "
+                                     "YEARWEEK(NOW())").format(duration, User_id, Current_time)
+                            try:
+                                cursor.execute(sql)
+                                cursor.execute(sql_1)
+                                cursor.execute(sql_2)
+                                conn.commit()
+                                return JSONResponse(content={"msg": True, "data": "签退成功", "status_code": 200})
+                            except Exception as e:
+                                conn.rollback()
+                                return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+                        else:
+                            sql_2 = "INSERT INTO week_time (id,name,date,duration) VALUES ('{}', '{}', '{}', '{}')".format(
+                                User_id,
+                                name,
+                                Current_time,
+                                0)
+                            try:
+                                cursor.execute(sql)
+                                cursor.execute(sql_1)
+                                cursor.execute(sql_2)
+                                conn.commit()
+                                return JSONResponse(content={"msg": True, "data": "签退成功", "status_code": 200})
+                            except Exception as e:
+                                conn.rollback()
+                                return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
                 else:
                     print("签退失败，提示用户")
                     # 签退失败，提示用户
                     return JSONResponse(
                         content={"msg": False, "error": "您今天已经签退,请勿重复操作！", "status_code": 400})
-
             else:
                 # 签退失败，提示用户
                 return JSONResponse(content={"msg": False, "error": "您今天还未签到,请先签到！", "status_code": 400})
@@ -430,11 +472,12 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
         db_pool.close_connection(conn)
 
 
-# 获取一天的学习时长
-@router.get("/get_study_time", summary="获取一天的学习时长", description="获取一天的学习时长", tags=['学习'])
-async def get_study_time(access_Token: dict = Depends(token.verify_token)):
+# 获取所有人一天的学习时长
+@router.get("/get_all_study_time", summary="获取所有人一天的学习时长", description="获取所有人一天的学习时长",
+            tags=['学习时长'])
+async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
     """
-    获取一天的学习时长
+    获取所有人一天的学习时长
     return:
         {
             "msg": True,
@@ -451,6 +494,20 @@ async def get_study_time(access_Token: dict = Depends(token.verify_token)):
     conn = db_pool.get_connection()
     try:
         with conn.cursor() as cursor:
+            sql_1 = "SELECT id,name,picture FROM user"
+            try:
+                cursor.execute(sql_1)
+                result1 = cursor.fetchone()
+                infor = []
+                if result1:
+                    for i in range(len(result1)):
+                        id1, name1, picture1 = result1[i]
+                        infor.append({"id": id1, "name": name1, "day_duration": 0, "picture": picture1})
+                else:
+                    return JSONResponse(content={"msg": False, "error": "用户信息获取失败", "status_code": 400})
+            except Exception as e:
+                return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+
             # 查询同一天里的end_time为空的签到记录
             sql = "SELECT id,begin_time FROM sign_time WHERE DATE(begin_time) = CURDATE() AND end_time IS NULL"
 
@@ -471,7 +528,7 @@ async def get_study_time(access_Token: dict = Depends(token.verify_token)):
                     info.append((User_id, duration))
 
                     # 查询学习时长
-                sql = "SELECT id,name,day_duration,picture FROM participate_time WHERE DATE(date) = CURDATE()"
+                sql = "SELECT id,name,duration FROM day_time WHERE DATE(date) = CURDATE()"
 
                 try:
                     cursor.execute(sql)
@@ -479,61 +536,45 @@ async def get_study_time(access_Token: dict = Depends(token.verify_token)):
                     info1 = []
                     if result1:
                         for x in range(len(result1)):
-                            id, name, day_duration, picture = result1[x]
+                            id, name, day_duration = result1[x]
                             for y in range(len(info)):
+                                picture = infor[y]["picture"]
                                 if info[y][0] == id:
                                     day_duration = float(day_duration) + float(info[y][1])
                                     info1.append(
                                         {"id": id, "name": name, "day_duration": day_duration, "picture": picture})
+                                else:
+                                    id1, name1 = infor[y]["id"], infor[y]["name"]
+                                    info1.append(
+                                        {"id": id1, "name": name1, "day_duration": 0, "picture": picture})
+
                         return JSONResponse(content={"msg": True, "data": info1, "status_code": 200})
 
                 except Exception as e:
                     return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
             # 要么今天签退了，要么今天没签到
             else:
-                sql_1 = "SELECT id,name,picture FROM user"
-                try:
-                    cursor.execute(sql_1)
-                    result1 = cursor.fetchone()
-                    info2 = []
-                    if result1:
-                        for i in range(len(result1)):
-                            id1, name1, picture1 = result1[i]
-                            info2.append({"id": id1, "name": name1, "day_duration": 0, "picture": picture1})
-                except Exception as e:
-                    return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
                 # 查询学习时长
-                sql = "SELECT id,name,day_duration,picture FROM participate_time WHERE DATE(date) = CURDATE()"
+                sql = "SELECT id,name,duration FROM day_time WHERE DATE(date) = CURDATE()"
                 try:
                     cursor.execute(sql)
                     result = cursor.fetchall()
-                    info4 = []
+                    info2 = []
                     if result:
                         for i in range(len(result)):
-                            id2, name2, day_duration, picture2 = result[i]
-                            for j in range(len(info2)):
-                                if info2[j]["id"] == id2:
-                                    info4.append(
-                                        {"id": id2, "name": name2, "day_duration": day_duration, "picture": picture2})
+                            id2, name2, day_duration = result[i]
+                            for j in range(len(infor)):
+                                picture = infor[j]["picture"]
+                                if infor[j]["id"] == id2:
+                                    info2.append(
+                                        {"id": id2, "name": name2, "day_duration": day_duration, "picture": picture})
                                 else:
-                                    info4.append({"id": id1, "name": name1, "day_duration": 0, "picture": picture1})
-                        return JSONResponse(content={"msg": True, "data": info2, "status_code": 200})
+                                    id1, name1 = infor[j]["id"], infor[j]["name"]
+                                    info2.append({"id": id1, "name": name1, "day_duration": 0, "picture": picture})
+                        return JSONResponse(content={"msg": True, "data": infor, "status_code": 200})
                     else:
-                        # 查询user表获取用户信息
-                        sql = "SELECT id,name,picture FROM user"
-                        try:
-                            cursor.execute(sql)
-                            result = cursor.fetchone()
-                            if result:
-                                info3 = []
-                                for i in range(len(result)):
-                                    id, name, picture = result[i]
-                                    info3.append({"id": id, "name": name, "day_duration": 0, "picture": picture})
-                                    # 计算学习时长
-                                return JSONResponse(content={"msg": True, "data": info3, "status_code": 200})
-                        except Exception as e:
-                            return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
 
+                        return JSONResponse(content={"msg": True, "data": infor, "status_code": 200})
                 except Exception as e:
                     return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
 
@@ -544,8 +585,85 @@ async def get_study_time(access_Token: dict = Depends(token.verify_token)):
 
 
 # 计算一周的学习时长
-@router.get("/get_week_study_time", summary="计算一周的学习时长", description="计算一周的学习时长", tags=['学习'])
-async def get_week_study_time(access_Token: dict = Depends(token.verify_token)):
+@router.get("/get_week_all_study_time", summary="获取所有人一周的学习时长", description="获取所有人一周的学习时长",
+            tags=['学习时长'])
+async def get_week_all_study_time(access_Token: dict = Depends(token.verify_token)):
+    """
+    获取所有人一周的学习时长
+    """
+    db_pool = MySQLConnectionPool()
+    conn = db_pool.get_connection()
+
+    try:
+        with conn.cursor() as cursor:
+            # 查询user表获取用户信息
+            sql = "SELECT id,name,picture FROM user"
+            cursor.execute(sql)
+            result1 = cursor.fetchall()
+            if result1:
+                info = []
+                for i in range(len(result1)):
+                    id1, name1, picture = result1[i]
+                    info.append({"id": id, "name": name1, "day_duration": 0, "picture": picture})
+                # 查询学习时长
+                sql = "SELECT id,name,duration FROM day_time WHERE YEARWEEK(date) = YEARWEEK(NOW())"
+                cursor.execute(sql)
+                result2 = cursor.fetchall()
+                if result2:
+                    for i in range(len(result2)):
+                        id, name, day_duration = result2[i]
+                        for j in range(len(info)):
+                            if info[j]["id"] == id:
+                                info[j]["day_duration"] = float(day_duration) + info[j]["day_duration"]
+                    return JSONResponse(content={"msg": True, "data": info, "status_code": 200})
+                else:
+                    return JSONResponse(content={"msg": True, "data": info, "status_code": 200})
+            else:
+                return JSONResponse(content={"msg": False, "error": "用户信息获取失败", "status_code": 400})
+
+    except Exception as e:
+        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+    finally:
+        db_pool.close_connection(conn)
+
+
+@router.get("/get_one_study_time", summary="获取一个人一天的学习时长", description="获取一个人一天的学习时长",
+            tags=['学习时长'])
+async def get_one_study_time(access_Token: dict = Depends(token.verify_token)):
+    """
+    获取一个人一天的学习时长
+    """
+    db_pool = MySQLConnectionPool()
+    conn = db_pool.get_connection()
+    User_id = access_Token.get('sub')
+    try:
+        with conn.cursor() as cursor:
+            # 查询同一天里的所有签到记录
+            sql = "SELECT duration FROM sign_time WHERE id = '{}' AND DATE(begin_time) = CURDATE()".format(
+                User_id)
+            cursor.execute(sql)
+            result = cursor.fetchall()
+            if result is None:
+                print("今天还没有签到")
+                return JSONResponse(content={"msg": True, "data": {"total_time": 0}, "status_code": 400})
+            else:
+                # 计算学习时长
+                total_time = 0
+                for i in range(len(result)):
+                    if result[i][0]:
+                        total_time += float(result[i][0])
+
+                return JSONResponse(content={"msg": True, "data": {"total_time": total_time}, "status_code": 200})
+
+    except Exception as e:
+        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+    finally:
+        db_pool.close_connection(conn)
+
+
+# 计算一周的学习时长
+@router.get("/get_week_one_study_time", summary="计算一周的学习时长", description="计算一周的学习时长", tags=['学习'])
+async def get_week_one_study_time(access_Token: dict = Depends(token.verify_token)):
     """
     计算一周的学习时长
     """
@@ -587,11 +705,11 @@ async def upload_file_to_minion_bag(bucket_name, object_name, file_path, content
 
 
 @router.post("/upload_file", summary="上传/修改头像", description="上传/修改头像", tags=['头像'])
-async def upload_file(access_Token: dict = Depends(token.verify_token), file: UploadFile = File(...)):
+async def upload_file( file: UploadFile = File(...)):
     """
     上传/修改头像
     """
-    User_id = access_Token.get('sub')
+    # User_id = access_Token.get('sub')
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
 
@@ -614,11 +732,9 @@ async def upload_file(access_Token: dict = Depends(token.verify_token), file: Up
                 os.remove(file_path)
                 file_url = f'http://43.143.229.40:9000/{Bucket_name}/{file.filename}'
                 # 更新用户头像
-                sql = "UPDATE user SET picture = '{}' WHERE id = '{}'".format(file_url, User_id)
-                sql_1 = "UPDATE participate_time SET picture = '{}' WHERE id = '{}'".format(file_url, User_id)
+                sql = "UPDATE user SET picture = '{}' WHERE id = '{}'".format(file_url, 1)
                 try:
                     cursor.execute(sql)
-                    cursor.execute(sql_1)
                     conn.commit()
                     return JSONResponse(content={"msg": True, "data": {"file_url": file_url}, "status_code": 200})
                 except Exception as e:
