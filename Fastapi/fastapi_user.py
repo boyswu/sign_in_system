@@ -508,15 +508,16 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
             except Exception as e:
                 return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
 
-            # 查询同一天里的end_time为空的签到记录
+            # 查询所有人同一天里的end_time为空的签到记录
             sql = "SELECT id,begin_time FROM sign_time WHERE DATE(begin_time) = CURDATE() AND end_time IS NULL"
 
             cursor.execute(sql)
             result = cursor.fetchall()
+            # 有部分人签到，有部分人没签到
             if result:
                 Current_time = datetime.now()  # 不使用 strftime，直接使用 datetime 对象
                 #
-                info = []
+                info1 = []
                 for i in range(len(result)):
                     # 计算时间差
                     User_id = result[i][0]
@@ -525,7 +526,7 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
                     # 将时间差转换为小时
                     duration = duration.total_seconds() / 3600
                     duration = round(duration, 2)  # 保留两位小数
-                    info.append((User_id, duration))
+                    info1.append((User_id, duration))
 
                     # 查询学习时长
                 sql = "SELECT id,name,duration FROM day_time WHERE DATE(date) = CURDATE()"
@@ -533,26 +534,51 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
                 try:
                     cursor.execute(sql)
                     result1 = cursor.fetchall()
-                    info1 = []
+                    info2 = []
+                    # 今天签到过并且今天签退后再次签到，未签退的记录
                     if result1:
                         for x in range(len(result1)):
                             id, name, day_duration = result1[x]
-                            for y in range(len(info)):
-                                picture = infor[y]["picture"]
-                                if info[y][0] == id:
-                                    day_duration = float(day_duration) + float(info[y][1])
-                                    info1.append(
-                                        {"id": id, "name": name, "day_duration": day_duration, "picture": picture})
-                                else:
-                                    id1, name1 = infor[y]["id"], infor[y]["name"]
-                                    info1.append(
-                                        {"id": id1, "name": name1, "day_duration": 0, "picture": picture})
+                            for y in range(len(info1)):
+                                for z in range(len(infor)):
+                                    picture = infor[z]["picture"]
+                                    # 判断用户表id是否在sign_time表中,没有就是今天没签到
+                                    if infor[z]["id"] == info1[y][0]:
+                                        # 今天签到过并且今天签退后再次签到，未签退的加上未签退的记录的学习时长
+                                        if info1[y][0] == id:
+                                            day_duration = float(day_duration) + float(info1[y][1])
+                                            info2.append(
+                                                {"id": id, "name": name, "day_duration": day_duration,
+                                                 "picture": picture})
+                                        # 今天签到过但今天没签退的记录(签到过一次，但没签退)
+                                        else:
+                                            id1, name1 = infor[y]["id"], infor[y]["name"]
+                                            info2.append(
+                                                {"id": id1, "name": name1, "day_duration": float(info1[y][1]),
+                                                 "picture": picture})
+                                    # 今天没签到
+                                    else:
+                                        id2, name2 = infor[z]["id"], infor[z]["name"]
+                                        info2.append({"id": id2, "name": name2, "day_duration": 0, "picture": picture})
 
-                        return JSONResponse(content={"msg": True, "data": info1, "status_code": 200})
+                        return JSONResponse(content={"msg": True, "data": info2, "status_code": 200})
+                    # 部分人今天都签到过，但今天都没签退，day_time表没有记录
+                    else:
+                        for y in range(len(info1)):
+                            for z in range(len(infor)):
+                                picture = infor[z]["picture"]
+                                if infor[z]["id"] == info1[y][0]:
+                                    id1, name1 = infor[z]["id"], infor[z]["name"]
+                                    info2.append({"id": id1, "name": name1, "day_duration": float(info1[y][1]),
+                                                  "picture": picture})
+                                else:
+                                    id2, name2 = infor[z]["id"], infor[z]["name"]
+                                    info2.append({"id": id2, "name": name2, "day_duration": 0, "picture": picture})
+                        return JSONResponse(content={"msg": True, "data": info2, "status_code": 200})
 
                 except Exception as e:
                     return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
-            # 要么今天签退了，要么今天没签到
+            # 要么今天部分人都签退了，要么今天所有人都没签到
             else:
                 # 查询学习时长
                 sql = "SELECT id,name,duration FROM day_time WHERE DATE(date) = CURDATE()"
@@ -565,15 +591,17 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
                             id2, name2, day_duration = result[i]
                             for j in range(len(infor)):
                                 picture = infor[j]["picture"]
+                                # 今天部分人有签到记录
                                 if infor[j]["id"] == id2:
                                     info2.append(
                                         {"id": id2, "name": name2, "day_duration": day_duration, "picture": picture})
+                                # 今天部分人无签到记录
                                 else:
                                     id1, name1 = infor[j]["id"], infor[j]["name"]
                                     info2.append({"id": id1, "name": name1, "day_duration": 0, "picture": picture})
                         return JSONResponse(content={"msg": True, "data": infor, "status_code": 200})
+                    # 今天所有人都没签到
                     else:
-
                         return JSONResponse(content={"msg": True, "data": infor, "status_code": 200})
                 except Exception as e:
                     return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
@@ -584,7 +612,7 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
         db_pool.close_connection(conn)
 
 
-# 计算一周的学习时长
+# 获取所有人一周的学习时长
 @router.get("/get_week_all_study_time", summary="获取所有人一周的学习时长", description="获取所有人一周的学习时长",
             tags=['学习时长'])
 async def get_week_all_study_time(access_Token: dict = Depends(token.verify_token)):
@@ -596,65 +624,166 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
 
     try:
         with conn.cursor() as cursor:
-            # 查询user表获取用户信息
-            sql = "SELECT id,name,picture FROM user"
-            cursor.execute(sql)
-            result1 = cursor.fetchall()
-            if result1:
+            sql_1 = "SELECT id,name,picture FROM user"
+            try:
+                cursor.execute(sql_1)
+                result1 = cursor.fetchone()
                 info = []
-                for i in range(len(result1)):
-                    id1, name1, picture = result1[i]
-                    info.append({"id": id, "name": name1, "day_duration": 0, "picture": picture})
-                # 查询学习时长
-                sql = "SELECT id,name,duration FROM day_time WHERE YEARWEEK(date) = YEARWEEK(NOW())"
-                cursor.execute(sql)
-                result2 = cursor.fetchall()
-                if result2:
-                    for i in range(len(result2)):
-                        id, name, day_duration = result2[i]
-                        for j in range(len(info)):
-                            if info[j]["id"] == id:
-                                info[j]["day_duration"] = float(day_duration) + info[j]["day_duration"]
-                    return JSONResponse(content={"msg": True, "data": info, "status_code": 200})
+                if result1:
+                    for i in range(len(result1)):
+                        id1, name1, picture1 = result1[i]
+                        info.append({"id": id1, "name": name1, "week_duration": 0, "picture": picture1})
                 else:
-                    return JSONResponse(content={"msg": True, "data": info, "status_code": 200})
-            else:
-                return JSONResponse(content={"msg": False, "error": "用户信息获取失败", "status_code": 400})
+                    return JSONResponse(content={"msg": False, "error": "用户信息获取失败", "status_code": 400})
+            except Exception as e:
+                return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+            # 查询同一周的某一天里的end_time为空的签到记录
+            sql = "SELECT id,begin_time FROM sign_time WHERE YEARWEEK(begin_time) = YEARWEEK(NOW()) AND end_time IS NULL"
+            try:
+                cursor.execute(sql)
+                result = cursor.fetchall()
+                # 有部分人签到过多次，有部分人签到过一次,有部分人没签到
+                if result:
+                    Current_time = datetime.now()  # 不使用 strftime，直接使用 datetime 对象
+                    #
+                    info1 = []
+                    for i in range(len(result)):
+                        # 计算时间差
+                        User_id = result[i][0]
+                        begin_time = result[i][1]
+                        duration = Current_time - begin_time
+                        # 将时间差转换为小时
+                        duration = duration.total_seconds() / 3600
+                        duration = round(duration, 2)  # 保留两位小数
+                        info1.append((User_id, duration))
+                    sql = "SELECT id,name,duration FROM week_time WHERE YEARWEEK(date) = YEARWEEK(NOW())"
+                    try:
+                        cursor.execute(sql)
+                        result1 = cursor.fetchall()
+                        info2 = []
+                        # 部分人本周签到过并且本周有签退后再次签到,未签退的记录，部分人本周没签到
+                        if result1:
+                            for x in range(len(result1)):
+                                id, name, week_duration = result1[x]
+                                for y in range(len(info1)):
+                                    for z in range(len(info)):
+                                        picture = info[z]["picture"]
+                                        # 判断用户表id是否在sign_time表中,没有就是本周没签到
+                                        if info[z]["id"] == info1[y][0]:
+                                            # 本周签到过并且本周有签退后再次签到,未签退的加上未签退的记录的学习时长
+                                            if info1[y][0] == id:
+                                                week_duration = float(week_duration) + float(info1[y][1])
+                                                info2.append(
+                                                    {"id": id, "name": name, "week_duration": week_duration,
+                                                     "picture": picture})
+                                            # 本周签到过但本周没签退的记录(签到过一次，但没签退)
+                                            else:
+                                                id1, name1 = info[y]["id"], info[y]["name"]
+                                                info2.append(
+                                                    {"id": id1, "name": name1, "week_duration": float(info1[y][1]),
+                                                     "picture": picture})
+                                        # 本周没签到
+                                        else:
+                                            id2, name2 = info[z]["id"], info[z]["name"]
+                                            info2.append(
+                                                {"id": id2, "name": name2, "week_duration": 0, "picture": picture})
+                            return JSONResponse(content={"msg": True, "data": info2, "status_code": 200})
+                        # 部分人本周都签到过，但本周都没签退，week_time表没有记录
+                        else:
+                            for y in range(len(info1)):
+                                for z in range(len(info)):
+                                    picture = info[z]["picture"]
+                                    # 判断用户表id是否在sign_time表中,没有就是本周没签到
+                                    if info[z]["id"] == info1[y][0]:
+                                        id1, name1 = info[z]["id"], info[z]["name"]
+                                        info2.append(
+                                            {"id": id1, "name": name1, "week_duration": float(info1[y][1]),
+                                             "picture": picture})
+                                    # 本周没签到
+                                    else:
+                                        id2, name2 = info[z]["id"], info[z]["name"]
+                                        info2.append({"id": id2, "name": name2, "week_duration": 0, "picture": picture})
+                            return JSONResponse(content={"msg": True, "data": info2, "status_code": 200})
 
+                    except Exception as e:
+                        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+                # 要么本周部分人都签退了，要么本周所有人都没签到
+                else:
+                    # 查询学习时长
+                    sql = "SELECT id,name,duration FROM week_time WHERE YEARWEEK(date) = YEARWEEK(NOW())"
+                    try:
+                        cursor.execute(sql)
+                        result = cursor.fetchall()
+                        info3 = []
+                        if result:
+                            for i in range(len(result)):
+                                id2, name2, week_duration = result[i]
+                                for j in range(len(info)):
+                                    picture = info[j]["picture"]
+                                    # 本周有签到记录
+                                    if info[j]["id"] == id2:
+                                        info3.append(
+                                            {"id": id2, "name": name2, "week_duration": week_duration,
+                                             "picture": picture})
+                                    # 本周部分人无签到记录
+                                    else:
+                                        id1, name1 = info[j]["id"], info[j]["name"]
+                                        info3.append({"id": id1, "name": name1, "week_duration": 0, "picture": picture})
+                            return JSONResponse(content={"msg": True, "data": info3, "status_code": 200})
+                        # 本周所有人都没签到
+                        else:
+                            return JSONResponse(content={"msg": True, "data": info, "status_code": 200})
+                    except Exception as e:
+                        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+            except Exception as e:
+                return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
     except Exception as e:
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
     finally:
         db_pool.close_connection(conn)
 
 
-@router.get("/get_one_study_time", summary="获取一个人一天的学习时长", description="获取一个人一天的学习时长",
+@router.get("/get_one_study_time", summary="获取一个人两周周里每一天的学习时长",
+            description="获取一个人前两周里每一天的学习时长不包括今天",
             tags=['学习时长'])
 async def get_one_study_time(access_Token: dict = Depends(token.verify_token)):
     """
-    获取一个人一天的学习时长
+    获取一个人前两周里每一天的学习时长不包括今天
     """
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
     User_id = access_Token.get('sub')
     try:
         with conn.cursor() as cursor:
-            # 查询同一天里的所有签到记录
-            sql = "SELECT duration FROM sign_time WHERE id = '{}' AND DATE(begin_time) = CURDATE()".format(
+            # 查询用户信息
+            sql_1 = "SELECT id,name,picture FROM user WHERE id = '{}'".format(User_id)
+            try:
+                cursor.execute(sql_1)
+                result1 = cursor.fetchone()
+                if result1:
+                    id1, name1, picture1 = result1[0], result1[1], result1[2]
+                else:
+                    return JSONResponse(content={"msg": False, "error": "用户信息获取失败", "status_code": 400})
+            except Exception as e:
+                return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+            # 查询day_time表中该用户14天的学习时长,日期,心得不包括今天的记录
+            sql = ("SELECT DATE(date),duration,describe FROM day_time WHERE id = '{}' "
+                   "AND DATE(date) NOT IN (CURDATE()) AND DATE(date) BETWEEN DATE_SUB(NOW(), INTERVAL 14 DAY) AND NOW()").format(
                 User_id)
-            cursor.execute(sql)
-            result = cursor.fetchall()
-            if result is None:
-                print("今天还没有签到")
-                return JSONResponse(content={"msg": True, "data": {"total_time": 0}, "status_code": 400})
-            else:
-                # 计算学习时长
-                total_time = 0
-                for i in range(len(result)):
-                    if result[i][0]:
-                        total_time += float(result[i][0])
-
-                return JSONResponse(content={"msg": True, "data": {"total_time": total_time}, "status_code": 200})
-
+            try:
+                cursor.execute(sql)
+                result = cursor.fetchall()
+                data = []
+                if result:
+                    for i in range(len(result)):
+                        date, duration, describe = result[i][0], result[i][1], result[i][2]
+                        data.append({"id": id1, "name": name1, "date": date, "duration": duration, "describe": describe,
+                                     "picture": picture1})
+                        return JSONResponse(content={"msg": True, "data": data, "status_code": 200})
+                else:
+                    return JSONResponse(content={"msg": True, "data": data, "status_code": 200})
+            except Exception as e:
+                return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
     except Exception as e:
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
     finally:
@@ -662,7 +791,8 @@ async def get_one_study_time(access_Token: dict = Depends(token.verify_token)):
 
 
 # 计算一周的学习时长
-@router.get("/get_week_one_study_time", summary="计算一周的学习时长", description="计算一周的学习时长", tags=['学习'])
+@router.get("/get_week_one_study_time", summary="计算一周的学习时长", description="计算一周的学习时长",
+            tags=['学习时长'])
 async def get_week_one_study_time(access_Token: dict = Depends(token.verify_token)):
     """
     计算一周的学习时长
@@ -705,7 +835,7 @@ async def upload_file_to_minion_bag(bucket_name, object_name, file_path, content
 
 
 @router.post("/upload_file", summary="上传/修改头像", description="上传/修改头像", tags=['头像'])
-async def upload_file( file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...)):
     """
     上传/修改头像
     """
