@@ -15,14 +15,12 @@ def select_face_sql():
             cursor.execute(sql)
             results = cursor.fetchall()
             if results:
-                user_id = results[0][0]
-                name = results[0][1]
-                face = results[0][2]
-                return user_id, name, face
+
+                return results
             else:
-                return None, None, None  # 或其他逻辑来处理没有结果的情况
+                return None # 或其他逻辑来处理没有结果的情况
     except Exception as e:
-        return False, False, False
+        return False
     finally:
         db_pool.close_connection(conn)
 
@@ -41,15 +39,21 @@ def face_recognize(file_content):
         feature = seetaFace.get_feature_numpy(feature)  # 获取feature的numpy表示数据
         Feature.append(feature)
     people_face = feature.tostring()  # 将 NumPy 数组转换为 Python 列表
-    user_id, name, face = select_face_sql()
-    if face is False:
+    results = select_face_sql()
+    if results is False:
         return 0, 0, 0, 0
     similar = []
     for i in Feature:
-        # 判断是否存在数据库中，如果存在使用numpy计算，比较人脸特征值相似度
-        if face is not None:
-            feature_sql = np.frombuffer(face, dtype=np.float32)
-            similar1 = seetaFace.compare_feature_np(feature_sql, i)  # 计算两个特征值之间的相似度
-            similar.append(similar1)
-            # print(similar)
+        for j in range(len(results)):
+            user_id, name, face = results[j]
+    # 判断是否存在数据库中，如果存在使用numpy计算，比较人脸特征值相似度
+            if face is not None:
+                feature_sql = np.frombuffer(face, dtype=np.float32)
+                similar1 = seetaFace.compare_feature_np(feature_sql, i)  # 计算两个特征值之间的相似度
+                similar.append((user_id, name, similar1))
+                print(user_id, name, similar)
+    # 取最大相似度的用户
+    max_similar = max(similar, key=lambda x: x[2])
+    user_id, name, similar = max_similar
+    print(user_id, name, similar)
     return user_id, name, people_face, similar

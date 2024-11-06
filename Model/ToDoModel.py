@@ -136,3 +136,10 @@ class get_file_list(BaseModel):
     Folder_id:文件夹ID
     """
     Folder_id: Optional[str] = None
+class description(BaseModel):
+    """
+    daty:日期
+    Description:描述
+    """
+
+    Description: Optional[str] = None
