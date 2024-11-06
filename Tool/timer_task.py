@@ -46,6 +46,5 @@ schedule.every().day.at("00:00").do(my_function)
 
 def run_schedule():
     while True:
-        print("开始执行定时任务")
         schedule.run_pending()  # 执行已安排的任务
         time.sleep(1)  # 等待一秒再检查

@@ -36,4 +36,5 @@ if __name__ == '__main__':
     # 启动调度任务的线程
     scheduler_thread = threading.Thread(target=run_schedule)
     scheduler_thread.start()
-    uvicorn.run(app, host="192.168.3.24", port=8000)
+    # uvicorn.run(app, host="192.168.3.24", port=8080)
+    uvicorn.run(app, host="0.0.0.0", port=8080)

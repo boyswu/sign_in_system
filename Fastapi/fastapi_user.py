@@ -666,11 +666,11 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
 #         db_pool.close_connection(conn)
 #
 
-@router.get("/get_all_study_time", summary="获取所有人一天的学习时长", description="获取所有人一天的学习时长",
+@router.get("/get_all_study_time", summary="获取所有人一天的学习排名", description="获取所有人一天的学习排名",
             tags=['面面通'])
 async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
     """
-    获取所有人一天的学习时长
+    获取所有人一天的学习排名
     return:
         {
             "msg": True,
@@ -720,12 +720,22 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
             for user in user_info:
                 user["day_duration"] = duration_info[user["id"]]
 
-            return JSONResponse(content={"msg": True, "info": user_info, "status_code": 200})
+            # 排序
+            user_info.sort(key=lambda x: x["day_duration"], reverse=True)
+            # 将不同类型数据都返回放在不同列表中
+            user_id_list = [user["id"] for user in user_info]
+            name_list = [user["name"] for user in user_info]
+            day_duration_list = [user["day_duration"] for user in user_info]
+            picture_list = [user["picture"] for user in user_info]
+            return JSONResponse(content={"msg": True, "user_id_list": user_id_list, "name_list": name_list,
+                                         "day_duration_list": day_duration_list, "picture_list": picture_list,
+                                         "status_code": 200})
 
     except Exception as e:
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
     finally:
         db_pool.close_connection(conn)
+
 
 #
 # # 获取所有人一周的学习时长
@@ -859,11 +869,11 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
 #         db_pool.close_connection(conn)
 
 
-@router.get("/get_week_all_study_time", summary="获取所有人一周的学习时长", description="获取所有人一周的学习时长",
+@router.get("/get_week_all_study_time", summary="获取所有人一周的学习排名", description="获取所有人一周的学习排名",
             tags=['面面通'])
 async def get_week_all_study_time(access_Token: dict = Depends(token.verify_token)):
     """
-    获取所有人一周的学习时长
+    获取所有人一周的学习排名
     """
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
@@ -901,8 +911,16 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
 
             for user in user_info:
                 user["week_duration"] = duration_info[user["id"]]
-
-            return JSONResponse(content={"msg": True, "info": user_info, "status_code": 200})
+            # 排序
+            user_info.sort(key=lambda x: x["day_duration"], reverse=True)
+            # 将不同类型数据都返回放在不同列表中
+            user_id_list = [user["id"] for user in user_info]
+            name_list = [user["name"] for user in user_info]
+            day_duration_list = [user["day_duration"] for user in user_info]
+            picture_list = [user["picture"] for user in user_info]
+            return JSONResponse(content={"msg": True, "user_id_list": user_id_list, "name_list": name_list,
+                                         "day_duration_list": day_duration_list, "picture_list": picture_list,
+                                         "status_code": 200})
 
     except Exception as e:
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
@@ -954,12 +972,12 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
 #         db_pool.close_connection(conn)
 
 
-@router.get("/get_one_study_time", summary="获取一个人两周周里每一天的学习时长",
-            description="获取一个人前两周里每一天的学习时长不包括今天",
+@router.get("/get_one_study_time", summary="获取一个人七天的学习时长",
+            description="获取一个人七天的学习时长",
             tags=['面面通'])
 async def get_one_study_time(access_Token: dict = Depends(token.verify_token)):
     """
-    获取一个人前两周里每一天的学习时长不包括今天
+    获取一个人七天的学习时长
     """
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
@@ -974,24 +992,16 @@ async def get_one_study_time(access_Token: dict = Depends(token.verify_token)):
             if not result1:
                 return JSONResponse(content={"msg": False, "error": "用户信息获取失败", "status_code": 400})
 
-            id1, name1, picture1 = result1
-
             # 查询day_time表中该用户14天的学习时长,日期,心得不包括今天的记录
             cursor.execute("SELECT DATE(date), duration, description FROM day_time WHERE id = %s "
-                           "AND DATE(date) NOT IN (CURDATE()) AND DATE(date) >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)",
+                           "AND DATE(date) NOT IN (CURDATE()) AND DATE(date) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)",
                            (User_id,))
             result = cursor.fetchall()
 
-            data = [{
-                "id": id1,
-                "name": name1,
-                "date": date.strftime("%Y-%m-%d"),
-                "duration": duration,
-                "description": description,
-                "picture": picture1
-            } for date, duration, description in result]  # 使用列表生成式
+            date = [date.strftime("%m-%d") for date, duration, description in result]  # 使用列表生成式
+            duration = [duration for date, duration, description in result]
 
-            return JSONResponse(content={"msg": True, "info": data, "status_code": 200})
+            return JSONResponse(content={"msg": True, "date": date, "duration": duration, "status_code": 200})
 
     except Exception as e:
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
@@ -1054,31 +1064,29 @@ async def upload_file(file: UploadFile = File(...)):
         db_pool.close_connection(conn)
 
 
-# 添加每日心得
 @router.post("/add_day_description", summary="添加每日心得", description="添加每日心得", tags=['面面通'])
-async def add_day_description(description: ToDoModel.description, access_Token: dict = Depends(token.verify_token)):
+async def add_day_description(day_description: ToDoModel.description, access_Token: dict = Depends(token.verify_token)):
     """
     添加每日心得
     """
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()  # 获取数据库连接
 
-    description = description.description
+    description_text = day_description.description
+    print(description_text)
     # 获取用户id
-    User_id = access_Token.get('sub')
+    user_id = access_Token.get('sub')
 
     try:
         with conn.cursor() as cursor:
             # 更新day_time表只要今天的记录
             day_time = datetime.now()
-            sql = "UPDATE day_time SET description = '{}' WHERE id = '{}' AND DATE(date) = '{}'".format(description,
-                                                                                                        User_id,
-                                                                                                        day_time)
-            cursor.execute(sql)
+            sql = "UPDATE day_time SET description = %s WHERE id = %s AND DATE(date) = %s"
+            cursor.execute(sql, (description_text, user_id, day_time.date()))
             conn.commit()
-            return JSONResponse(content={"msg": True, "info": {"description": description}, "status_code": 200})
+            return JSONResponse(content={"msg": True, "description": description_text, "status_code": 200})
 
     except Exception as e:
-        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 500})
     finally:
         db_pool.close_connection(conn)
