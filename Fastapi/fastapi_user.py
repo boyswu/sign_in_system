@@ -912,14 +912,14 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
             for user in user_info:
                 user["week_duration"] = duration_info[user["id"]]
             # 排序
-            user_info.sort(key=lambda x: x["day_duration"], reverse=True)
+            user_info.sort(key=lambda x: x["week_duration"], reverse=True)
             # 将不同类型数据都返回放在不同列表中
             user_id_list = [user["id"] for user in user_info]
             name_list = [user["name"] for user in user_info]
-            day_duration_list = [user["day_duration"] for user in user_info]
+            week_duration_list = [user["week_duration"] for user in user_info]
             picture_list = [user["picture"] for user in user_info]
             return JSONResponse(content={"msg": True, "user_id_list": user_id_list, "name_list": name_list,
-                                         "day_duration_list": day_duration_list, "picture_list": picture_list,
+                                         "week_duration_list": week_duration_list, "picture_list": picture_list,
                                          "status_code": 200})
 
     except Exception as e:

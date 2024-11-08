@@ -16,21 +16,12 @@ def my_function():
         with conn.cursor() as cursor:
             # 获取当前时间
             create_time = datetime.now()
-            # 查询前一天里是否有未签退记录
-            yesterday = create_time - timedelta(days=1)
-            sql = "SELECT * FROM sign_time WHERE DATE(begin_time) = DATE('{}') AND end_time IS NULL".format(yesterday)
-            cursor.execute(sql)
-            result = cursor.fetchone()
-
-            if result:
-                # 修改所有未签退记录的end_time为当前时间
-                update_sql = ("UPDATE sign_time SET end_time = '{}', duration = '{}', status = '{}' WHERE DATE("
-                              "begin_time) =DATE('{}') AND end_time IS NULL").format(create_time, 0, '未签退', yesterday)
-                cursor.execute(update_sql)
-                conn.commit()
-                print("签退成功")
-            else:
-                print("未签退记录不存在")
+            # 修改所有未签退记录的end_time为当前时间
+            update_sql = ("UPDATE sign_time SET end_time = '{}',duration = '{}',status = '{}' "
+                          "WHERE end_time IS NULL").format(create_time, 0, '未签退')
+            cursor.execute(update_sql)
+            conn.commit()
+            print("签退成功")
 
     except Exception as e:
         print(f"错误发生: {e}")
