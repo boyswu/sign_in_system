@@ -1,7 +1,7 @@
 import schedule
 import time
 from connect_tool.sql import MySQLConnectionPool
-from datetime import datetime, timedelta
+from datetime import datetime
 
 """
 定时任务

@@ -3,18 +3,22 @@
 
 """
 
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QGuiApplication
+
 from PyQt5.QtWidgets import QMessageBox
-from UI.face import Ui_Form
+from UI.tryone import Ui_MainWindow
 from PyQt5 import QtWidgets
 from PyQt5 import QtGui
 from PyQt5 import QtCore
 from PyQt5.QtGui import QIcon
+from PyQt5.QtWidgets import QMainWindow
 import cv2
 
 import requests
 
 
-class face_MainWindow(QtWidgets.QMainWindow, Ui_Form):
+class face_MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super(face_MainWindow, self).__init__()
         self.setupUi(self)
@@ -31,8 +35,9 @@ class face_MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
     def init_solt(self):
         self.update_timer.timeout.connect(self.show_camera)  # 定时器连接显示摄像头画面槽函数
-        self.sign_in.clicked.connect(self.log_in_system)  # 签到系统
-        self.sign_out.clicked.connect(self.log_out_system)  # 退出系统
+        self.sign_in.clicked.connect(self.sign_in_system)  # 签到系统
+        self.sign_out.clicked.connect(self.sign_out_system)  # 签出系统
+        self.log_out.clicked.connect(self.log_out_system)  # 退出系统
 
     def show_camera(self):
         ret, frame = self.camera.read()
@@ -53,7 +58,7 @@ class face_MainWindow(QtWidgets.QMainWindow, Ui_Form):
                                     QtGui.QImage.Format_RGB888)  # 把读取到的视频数据变成QImage形式
             self.face_frame.setPixmap(QtGui.QPixmap.fromImage(srcFrame))  # 往显示视频的Label里 显示QImage
 
-    def log_in_system(self):
+    def sign_in_system(self):
         # 签到系统
         """
         # 人脸识别
@@ -72,7 +77,46 @@ class face_MainWindow(QtWidgets.QMainWindow, Ui_Form):
             'file': ('image.jpg', open('image.jpg', 'rb'))
         }
         response = requests.post(url, files=files)
-        message = response.json()[0]
+        result = response.json()
+        print(result)
+        # 获取所有值
+        values = list(result.values())
+        message = values[1]
+        if response.status_code == 200:
+            QtWidgets.QMessageBox.information(self, '提示', f'{message}')
+            # self.new_page()
+            return
+        if response.status_code == 400:
+            QtWidgets.QMessageBox.warning(self, '警告', f'{message}')
+            return
+        else:
+            print(f"请求失败，状态码: {response.status_code}")
+            print(response.text)
+
+    def sign_out_system(self):
+        # 签出系统
+        """
+        # 人脸识别
+        :param frame: 用户的人脸图片
+        :return:
+        """
+        print("签出系统")
+        _, frame = self.camera.read()  # 读取摄像头数据
+        cv2.imwrite('image.jpg', frame)  # 保存图片
+        print("图片保存成功")
+
+        url = 'http://43.143.229.40:8080/face_sign_out'
+
+        # 准备表单数据
+        files = {
+            'file': ('image.jpg', open('image.jpg', 'rb'))
+        }
+        response = requests.post(url, files=files)
+        result = response.json()
+        print(result)
+        # 获取所有值
+        values = list(result.values())
+        message = values[1]
         if response.status_code == 200:
             QtWidgets.QMessageBox.information(self, '提示', f'{message}')
             # self.new_page()
@@ -86,27 +130,40 @@ class face_MainWindow(QtWidgets.QMainWindow, Ui_Form):
 
     def log_out_system(self):
         self.face_frame.clear()  # 清空摄像头显示
-        # 关闭摄像头
-        self.camera.release()
         # 关闭窗口
         self.close()
 
-    def close_camera(self):
-        self.face_frame.clear()  # 清空摄像头显示
-        # 关闭摄像头
-        self.camera.release()
+
+#
+# if __name__ == "__main__":
+#     import sys
+#
+#     # QGuiApplication.setAttribute(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+#
+#     app = QtWidgets.QApplication(sys.argv)
+#     # icon_1 = QIcon("UI/iocn.png")
+#     # app.setWindowIcon(icon_1)
+#     Form = QtWidgets.QWidget()
+#     ui = face_MainWindow()
+#     ui.setupUi(Form)
+#     Form.show()
+#     sys.exit(app.exec_())
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
+#     import sys
+#
+#     app = QtWidgets.QApplication(sys.argv)
+#     MainWindow = face_MainWindow()
+#     MainWindow.show()
+#     sys.exit(app.exec_())
+if __name__ == '__main__':
     import sys
 
     # QGuiApplication.setAttribute(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
-
     app = QtWidgets.QApplication(sys.argv)
-    # icon_1 = QIcon("UI/iocn.png")
-    # app.setWindowIcon(icon_1)
-    Form = QtWidgets.QWidget()
-    ui = face_MainWindow()
-    ui.setupUi(Form)
-    Form.show()
+    icon_1 = QIcon("image/iocn.png")
+    app.setWindowIcon(icon_1)
+    main = face_MainWindow()
+    main.show()
     sys.exit(app.exec_())

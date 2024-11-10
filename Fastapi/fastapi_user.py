@@ -1,5 +1,6 @@
 import os
 import asyncio
+import threading
 from fastapi import Form, File, UploadFile, Depends, APIRouter
 from fastapi.responses import JSONResponse
 from datetime import datetime, timedelta
@@ -13,17 +14,27 @@ from Tool.face_recognize import face_recognize
 from Tool.upload import upload_files
 from connect_tool.sql import MySQLConnectionPool
 from concurrent.futures import ThreadPoolExecutor
+from Tool.timer_task import run_schedule
 
 router = APIRouter()
 
 # import logging
 #
 # logging.basicConfig(level=logging.DEBUG)
-
-executor = ThreadPoolExecutor(max_workers=10)  # 线程池最大线程数为10
 """
 创建一个线程池
 """
+
+executor = ThreadPoolExecutor(max_workers=10)  # 线程池最大线程数为10
+
+
+@router.on_event("startup")
+def startup_event():
+    # 启动调度任务的线程
+    scheduler_thread = threading.Thread(target=run_schedule)
+    scheduler_thread.start()
+    print("调度器已启动")
+
 
 """
 账户
@@ -112,7 +123,7 @@ async def login(login: ToDoModel.login_user):
             if result:
                 access_token_expires = timedelta(minutes=token.ACCESS_TOKEN_EXPIRE_MINUTES)
                 access_token = token.create_access_token(data={"sub": User_id}, expires_delta=access_token_expires)
-                if token.check_token_expiration(access_token):  # 假设有这样一个方法判断token是否过期
+                if token.verify_token(access_token) is False:  # 有这样一个方法判断token是否过期
                     return JSONResponse(content={"msg": False, "error": "Token已过期", "status_code": 201})
                 else:
                     return JSONResponse(content={"msg": True, "token": access_token, "status_code": 200})
@@ -129,20 +140,20 @@ async def protected_route(access_Token: dict = Depends(token.verify_token)):
     """
     Token获取信息
     """
+    if access_Token is None:
+        return JSONResponse(content={"msg": False, "error": "Token已过期", "status_code": 201})
     print(access_Token)  # 输出字典 {'sub': '123456'}
     User_id = access_Token.get('sub')  # 提取'sub'的值
     Token = token.get_token_data(access_Token)
-    if token.check_token_expiration(Token):  # 假设有这样一个方法判断token是否过期
-        return JSONResponse(content={"msg": False, "error": "Token已过期", "status_code": 201})
 
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
     try:
         with conn.cursor() as cursor:
-            sql = "SELECT * FROM user WHERE id = '{}'".format(User_id)
+            sql = "SELECT name FROM user WHERE id = '{}'".format(User_id)
             cursor.execute(sql)
-            result = cursor.fetchone()
-            User_id, Name, _, _, _, _ = result
+            result = cursor.fetchall()
+            Name = result[0][0]
             if result:
                 return JSONResponse(
                     content={"msg": True, "User_id": User_id, "Name": Name, "status_code": 200})
@@ -342,12 +353,12 @@ async def sign_in(file: UploadFile = File(...)):
 #     """
 #     签退
 #     """
+
 #     db_pool = MySQLConnectionPool()
 #     conn = db_pool.get_connection()
 #     User_id = access_Token.get('sub')
 #     # Token = token.get_token_data(access_Token)  # 获取Token
-#     # if token.check_token_expiration(Token):  # 假设有这样一个方法判断token是否过期
-#     #     return JSONResponse(content={"msg": False, "error": "Token已过期", "status_code": 201})
+
 #     try:
 #         with conn.cursor() as cursor:
 #
@@ -476,10 +487,12 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
     """
     签退
     """
+    if access_Token is False:
+        return JSONResponse(content={"msg": False, "error": "登录已过期,请重新登录", "status_code": 401})
+
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
     User_id = access_Token.get('sub')
-
     try:
         with conn.cursor() as cursor:
             # 获取当前时间
@@ -518,10 +531,78 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
                 cursor.execute(week_time_sql, (User_id, name, Current_time, duration, duration))
 
                 conn.commit()
-                return JSONResponse(content={"msg": True, "info": "签退成功", "status_code": 200})
+                return JSONResponse(content={"msg": True, "info": "{}签退成功".format(name), "status_code": 200})
 
             else:
                 return JSONResponse(content={"msg": False, "error": "您今天还未签到,请先签到！", "status_code": 400})
+
+    except Exception as e:
+        conn.rollback()
+        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+
+    finally:
+        db_pool.close_connection(conn)
+
+
+@router.post("/face_sign_out", summary="人脸签退", description="人脸签退", tags=['面面通'])
+async def face_sign_out(file: UploadFile = File(...)):
+    """
+    签退
+    """
+
+    db_pool = MySQLConnectionPool()
+    conn = db_pool.get_connection()
+    try:
+        with conn.cursor() as cursor:
+            file_content = await file.read()
+            User_id, name, _, similar = face_recognize(file_content)
+            if similar is False:
+                return JSONResponse(content={"msg": False,
+                                             "error": "登录失败,请确认人脸是否录入!!!\n若已录入请面向摄像头切勿遮挡人脸!!!",
+                                             "status_code": 400})
+            elif similar == 0:
+                return JSONResponse(content={"msg": False, "error": "人员不在库中,请联系管理员!!!", "status_code": 400})
+            if float(similar) > 0.65:  # 当相似度大于0.65时
+                # 获取当前时间
+                Current_time = datetime.now()
+
+                # 查询同一天里的最后一次签到记录
+                sql = ("SELECT begin_time, end_time, name FROM sign_time "
+                       "WHERE id = %s AND DATE(begin_time) = DATE(%s) "
+                       "ORDER BY begin_time DESC LIMIT 1")
+                cursor.execute(sql, (User_id, Current_time))
+                result = cursor.fetchone()
+
+                if result:
+                    begin_time, end_time, name = result
+
+                    if end_time is not None:
+                        return JSONResponse(
+                            content={"msg": False, "error": "您今天已经签退,请勿重复操作！", "status_code": 400})
+
+                    now_time = datetime.now()
+                    # 计算时间差
+                    duration = round((now_time - begin_time).total_seconds() / 3600, 2)  # 转换为小时并保留两位小数
+
+                    # 更新数据库
+                    update_sql = "UPDATE sign_time SET end_time = %s, duration = %s, status = '已签退' WHERE id = %s AND begin_time = %s"
+                    cursor.execute(update_sql, (Current_time, duration, User_id, begin_time))
+
+                    # 更新当天的学习时长
+                    day_time_sql = "INSERT INTO day_time (id, name, date, duration) VALUES (%s, %s, %s, %s) " \
+                                   "ON DUPLICATE KEY UPDATE duration = duration + %s"
+                    cursor.execute(day_time_sql, (User_id, name, Current_time, duration, duration))
+
+                    # 更新本周的学习时长
+                    week_time_sql = "INSERT INTO week_time (id, name, date, duration) VALUES (%s, %s, %s, %s) " \
+                                    "ON DUPLICATE KEY UPDATE duration = duration + %s"
+                    cursor.execute(week_time_sql, (User_id, name, Current_time, duration, duration))
+
+                    conn.commit()
+                    return JSONResponse(content={"msg": True, "info": "{}签退成功".format(name), "status_code": 200})
+
+                else:
+                    return JSONResponse(content={"msg": False, "error": "您今天还未签到,请先签到！", "status_code": 400})
 
     except Exception as e:
         conn.rollback()
@@ -683,6 +764,9 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
             "status_code": 200
         }
     """
+    if access_Token is False:
+        return JSONResponse(content={"msg": False, "error": "登录已过期,请重新登录", "status_code": 401})
+
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
     try:
@@ -875,9 +959,11 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
     """
     获取所有人一周的学习排名
     """
+    if access_Token is False:
+        return JSONResponse(content={"msg": False, "error": "登录已过期,请重新登录", "status_code": 401})
+
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
-
     try:
         with conn.cursor() as cursor:
             cursor.execute("SELECT id, name, picture FROM user")
@@ -979,10 +1065,12 @@ async def get_one_study_time(access_Token: dict = Depends(token.verify_token)):
     """
     获取一个人七天的学习时长
     """
+    if access_Token is False:
+        return JSONResponse(content={"msg": False, "error": "登录已过期,请重新登录", "status_code": 401})
+
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
     User_id = access_Token.get('sub')
-
     try:
         with conn.cursor() as cursor:
             # 查询用户信息
@@ -1019,18 +1107,16 @@ async def upload_file_to_minion_bag(bucket_name, object_name, file_path, content
 
 
 @router.post("/upload_file", summary="上传/修改头像", description="上传/修改头像", tags=['面面通'])
-async def upload_file(file: UploadFile = File(...)):
+async def upload_file(file: UploadFile = File(...), access_Token: dict = Depends(token.verify_token)):
     """
     上传/修改头像
     """
-    # User_id = access_Token.get('sub')
+    if access_Token is False:
+        return JSONResponse(content={"msg": False, "error": "登录已过期,请重新登录", "status_code": 401})
+
+    User_id = access_Token.get('sub')
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
-
-    # # 验证Token
-    # Token = token.get_token_data(access_Token)
-    # if token.check_token_expiration(Token):  # 假设有这样一个方法判断token是否过期
-    #     return JSONResponse(content={"msg": False, "error": "Token已过期", "status_code": 201})
     try:
         with conn.cursor() as cursor:
 
@@ -1046,7 +1132,7 @@ async def upload_file(file: UploadFile = File(...)):
                 os.remove(file_path)
                 file_url = f'http://43.143.229.40:9000/{Bucket_name}/{file.filename}'
                 # 更新用户头像
-                sql = "UPDATE user SET picture = '{}' WHERE id = '{}'".format(file_url, 1)
+                sql = "UPDATE user SET picture = '{}' WHERE id = '{}'".format(file_url, User_id)
                 try:
                     cursor.execute(sql)
                     conn.commit()
@@ -1064,29 +1150,34 @@ async def upload_file(file: UploadFile = File(...)):
         db_pool.close_connection(conn)
 
 
+# 添加每日心得
 @router.post("/add_day_description", summary="添加每日心得", description="添加每日心得", tags=['面面通'])
 async def add_day_description(day_description: ToDoModel.description, access_Token: dict = Depends(token.verify_token)):
     """
     添加每日心得
     """
+    if access_Token is False:
+        return JSONResponse(content={"msg": False, "error": "登录已过期,请重新登录", "status_code": 401})
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()  # 获取数据库连接
 
-    description_text = day_description.description
-    print(description_text)
+    description = day_description.description
     # 获取用户id
-    user_id = access_Token.get('sub')
+    User_id = access_Token.get('sub')
 
     try:
         with conn.cursor() as cursor:
             # 更新day_time表只要今天的记录
             day_time = datetime.now()
-            sql = "UPDATE day_time SET description = %s WHERE id = %s AND DATE(date) = %s"
-            cursor.execute(sql, (description_text, user_id, day_time.date()))
+            sql = "UPDATE day_time SET description = '{}' WHERE id = '{}' AND DATE(date) = '{}'".format(description,
+                                                                                                        User_id,
+                                                                                                        day_time)
+            cursor.execute(sql)
             conn.commit()
-            return JSONResponse(content={"msg": True, "description": description_text, "status_code": 200})
+
+            return JSONResponse(content={"msg": True, "description": description, "status_code": 200})
 
     except Exception as e:
-        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 500})
+        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
     finally:
         db_pool.close_connection(conn)
