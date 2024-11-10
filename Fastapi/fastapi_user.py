@@ -1,6 +1,7 @@
 import os
 import asyncio
 import threading
+from decimal import Decimal
 from fastapi import Form, File, UploadFile, Depends, APIRouter
 from fastapi.responses import JSONResponse
 from datetime import datetime, timedelta
@@ -529,9 +530,9 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
                     cursor.execute(update_sql)
 
                     if cursor.rowcount == 0:  # 如果没有更新到任何行
-                        insert_sql = ("INSERT INTO day_time (id, name, description, date, duration) "
-                                      "VALUES ('{}', '{}' ,'{}','{}','{}')").format(User_id, name, "无", Current_time,
-                                                                                    duration)
+                        insert_sql = ("INSERT INTO day_time (id, name, date, duration) "
+                                      "VALUES ('{}', '{}' ,'{}','{}')").format(User_id, name, Current_time,
+                                                                               duration)
                         cursor.execute(insert_sql)
 
                     # 如果记录存在，则更新其时长
@@ -620,10 +621,9 @@ async def face_sign_out(file: UploadFile = File(...)):
                         cursor.execute(update_sql)
 
                         if cursor.rowcount == 0:  # 如果没有更新到任何行
-                            insert_sql = ("INSERT INTO day_time (id, name, description, date, duration) "
-                                          "VALUES ('{}', '{}' ,'{}','{}','{}')").format(User_id, name, "无",
-                                                                                        Current_time,
-                                                                                        duration)
+                            insert_sql = ("INSERT INTO day_time (id, name, date, duration) "
+                                          "VALUES ('{}', '{}','{}','{}',)").format(User_id, name, Current_time,
+                                                                                   duration)
                             cursor.execute(insert_sql)
 
                         # 如果记录存在，则更新其时长
@@ -826,7 +826,8 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
             if not results:
                 return JSONResponse(content={"msg": False, "error": "用户信息获取失败", "status_code": 400})
 
-            user_info = [{"id": user[0], "name": user[1], "day_duration": 0, "picture": user[2]} for user in results]
+            user_info = [{"id": user[0], "name": user[1], "day_duration": 0, "picture": user[2], "description": ""}
+                         for user in results]
 
             # 查询今天签到记录
             cursor.execute(
@@ -835,22 +836,28 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
 
             current_time = datetime.now()
             duration_info = {user["id"]: 0 for user in user_info}  # 初始化学习时长字典
+            description_info = {user["id"]: "无" for user in user_info}  # 初始化描述字典
 
             if sign_in_records:
                 for user_id, begin_time in sign_in_records:
-                    duration = round((current_time - begin_time).total_seconds() / 3600, 2)
+                    # 使用 Decimal 进行计算并转为 float
+                    duration = float(Decimal((current_time - begin_time).total_seconds()) / Decimal(3600))
+                    duration = round(duration, 2)  # 保持两位小数
                     duration_info[user_id] += duration
 
             # 查询今天的学习时长
-            cursor.execute("SELECT id,duration FROM day_time WHERE DATE(date) = CURDATE()")
+            cursor.execute("SELECT id,duration,description FROM day_time WHERE DATE(date) = CURDATE()")
             day_time_records = cursor.fetchall()
 
             for record in day_time_records:
-                user_id, day_duration = record
+                user_id, day_duration, description = record
                 duration_info[user_id] += day_duration  # 累加今天的学习时长
+                description_info[user_id] = description  # 记录描述
 
+            # 合并学习时长和描述
             for user in user_info:
                 user["day_duration"] = duration_info[user["id"]]
+                user["description"] = description_info[user["id"]]
 
             # 排序
             user_info.sort(key=lambda x: x["day_duration"], reverse=True)
@@ -1025,7 +1032,8 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
 
             # 计算签到用户的学习时长
             for user_id, begin_time in sign_in_records:
-                duration = round((current_time - begin_time).total_seconds() / 3600, 2)
+                duration = float(Decimal((current_time - begin_time).total_seconds()) / Decimal(3600))
+                duration = round(duration, 2)  # 保持两位小数
                 duration_info[user_id] += duration
 
             # 查询本周的学习时长
