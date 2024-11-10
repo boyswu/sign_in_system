@@ -515,31 +515,53 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
                 now_time = datetime.now()
                 # 计算时间差
                 duration = round((now_time - begin_time).total_seconds() / 3600, 2)  # 转换为小时并保留两位小数
+                if duration > 0:
+                    # 更新数据库
+                    update_sql = (
+                        "UPDATE sign_time SET end_time = '{}', duration = '{}', status = '{}' WHERE id = '{}' AND "
+                        "begin_time = '{}'").format(Current_time, duration, "已签退", User_id, begin_time)
+                    cursor.execute(update_sql)
 
-                # 更新数据库
-                update_sql = "UPDATE sign_time SET end_time = %s, duration = %s, status = '已签退' WHERE id = %s AND begin_time = %s"
-                cursor.execute(update_sql, (Current_time, duration, User_id, begin_time))
+                    # 先尝试更新，如果没有更新到行数，则插入
+                    update_sql = (
+                        "UPDATE day_time SET duration = duration + '{}' WHERE id = '{}' AND DATE(date) = DATE('{"
+                        "}')").format(duration, User_id, Current_time)
+                    cursor.execute(update_sql)
 
-                # 更新当天的学习时长
-                day_time_sql = "INSERT INTO day_time (id, name, date, duration) VALUES (%s, %s, %s, %s) " \
-                               "ON DUPLICATE KEY UPDATE duration = duration + %s"
-                cursor.execute(day_time_sql, (User_id, name, Current_time, duration, duration))
+                    if cursor.rowcount == 0:  # 如果没有更新到任何行
+                        insert_sql = ("INSERT INTO day_time (id, name, description, date, duration) "
+                                      "VALUES ('{}', '{}' ,'{}','{}','{}')").format(User_id, name, "无", Current_time,
+                                                                                    duration)
+                        cursor.execute(insert_sql)
 
-                # 更新本周的学习时长
-                week_time_sql = "INSERT INTO week_time (id, name, date, duration) VALUES (%s, %s, %s, %s) " \
-                                "ON DUPLICATE KEY UPDATE duration = duration + %s"
-                cursor.execute(week_time_sql, (User_id, name, Current_time, duration, duration))
+                    # 如果记录存在，则更新其时长
+                    update_week_time_sql = ("UPDATE week_time SET duration = duration +'{}' "
+                                            "WHERE id = '{}' AND  YEARWEEK(date) = YEARWEEK(NOW())").format(duration,
+                                                                                                            User_id)
+                    cursor.execute(update_week_time_sql)
+                    if cursor.rowcount == 0:  # 如果没有更新到任何行
+                        # 如果记录不存在，则插入新记录
+                        insert_week_time_sql = ("INSERT INTO week_time (id, name, date, duration) VALUES"
+                                                " ('{}', '{}', '{}', '{}')").format(User_id, name, Current_time,
+                                                                                    duration)
+                        cursor.execute(insert_week_time_sql)
 
-                conn.commit()
-                return JSONResponse(content={"msg": True, "info": "{}签退成功".format(name), "status_code": 200})
+                    conn.commit()
 
+                    return JSONResponse(content={"msg": True, "info": "{}签退成功".format(name), "status_code": 200})
+                else:
+                    delete_sql = ("DELETE FROM sign_time WHERE id = '{}' AND  DATE(begin_time) = DATE(CURDATE()) "
+                                  "ORDER BY begin_time DESC LIMIT 1").format(User_id)
+                    cursor.execute(delete_sql)
+                    conn.commit()
+                    return JSONResponse(
+                        content={"msg": False, "error": "学习时长为0,不予记录！", "status_code": 400})
             else:
                 return JSONResponse(content={"msg": False, "error": "您今天还未签到,请先签到！", "status_code": 400})
 
     except Exception as e:
         conn.rollback()
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
-
     finally:
         db_pool.close_connection(conn)
 
@@ -547,7 +569,7 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
 @router.post("/face_sign_out", summary="人脸签退", description="人脸签退", tags=['面面通'])
 async def face_sign_out(file: UploadFile = File(...)):
     """
-    签退
+    人脸签退
     """
 
     db_pool = MySQLConnectionPool()
@@ -584,23 +606,49 @@ async def face_sign_out(file: UploadFile = File(...)):
                     # 计算时间差
                     duration = round((now_time - begin_time).total_seconds() / 3600, 2)  # 转换为小时并保留两位小数
 
-                    # 更新数据库
-                    update_sql = "UPDATE sign_time SET end_time = %s, duration = %s, status = '已签退' WHERE id = %s AND begin_time = %s"
-                    cursor.execute(update_sql, (Current_time, duration, User_id, begin_time))
+                    if duration > 0:
 
-                    # 更新当天的学习时长
-                    day_time_sql = "INSERT INTO day_time (id, name, date, duration) VALUES (%s, %s, %s, %s) " \
-                                   "ON DUPLICATE KEY UPDATE duration = duration + %s"
-                    cursor.execute(day_time_sql, (User_id, name, Current_time, duration, duration))
+                        # 更新数据库
+                        update_sql = (
+                            "UPDATE sign_time SET end_time = '{}', duration = '{}', status = '{}' WHERE id = '{}' AND "
+                            "begin_time = '{}'").format(Current_time, duration, "已签退", User_id, begin_time)
+                        cursor.execute(update_sql)
+                        # 先尝试更新，如果没有更新到行数，则插入
+                        update_sql = (
+                            "UPDATE day_time SET duration = duration + '{}' WHERE id = '{}' AND DATE(date) = DATE('{"
+                            "}')").format(duration, User_id, Current_time)
+                        cursor.execute(update_sql)
 
-                    # 更新本周的学习时长
-                    week_time_sql = "INSERT INTO week_time (id, name, date, duration) VALUES (%s, %s, %s, %s) " \
-                                    "ON DUPLICATE KEY UPDATE duration = duration + %s"
-                    cursor.execute(week_time_sql, (User_id, name, Current_time, duration, duration))
+                        if cursor.rowcount == 0:  # 如果没有更新到任何行
+                            insert_sql = ("INSERT INTO day_time (id, name, description, date, duration) "
+                                          "VALUES ('{}', '{}' ,'{}','{}','{}')").format(User_id, name, "无",
+                                                                                        Current_time,
+                                                                                        duration)
+                            cursor.execute(insert_sql)
 
-                    conn.commit()
-                    return JSONResponse(content={"msg": True, "info": "{}签退成功".format(name), "status_code": 200})
+                        # 如果记录存在，则更新其时长
+                        update_week_time_sql = ("UPDATE week_time SET duration = duration +'{}' "
+                                                "WHERE id = '{}' AND  YEARWEEK(date) = YEARWEEK(NOW())").format(
+                            duration,
+                            User_id)
+                        cursor.execute(update_week_time_sql)
+                        if cursor.rowcount == 0:  # 如果没有更新到任何行
+                            # 如果记录不存在，则插入新记录
+                            insert_week_time_sql = ("INSERT INTO week_time (id, name, date, duration) VALUES"
+                                                    " ('{}', '{}', '{}', '{}')").format(User_id, name, Current_time,
+                                                                                        duration)
+                            cursor.execute(insert_week_time_sql)
 
+                        conn.commit()
+                        return JSONResponse(
+                            content={"msg": True, "info": "{}签退成功".format(name), "status_code": 200})
+                    else:
+                        delete_sql = ("DELETE FROM sign_time WHERE id = '{}' AND  DATE(begin_time) = DATE(CURDATE()) "
+                                      "ORDER BY begin_time DESC LIMIT 1").format(User_id)
+                        cursor.execute(delete_sql)
+                        conn.commit()
+                        return JSONResponse(
+                            content={"msg": False, "error": "学习时长为0,不予记录！", "status_code": 400})
                 else:
                     return JSONResponse(content={"msg": False, "error": "您今天还未签到,请先签到！", "status_code": 400})
 
@@ -806,14 +854,7 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
 
             # 排序
             user_info.sort(key=lambda x: x["day_duration"], reverse=True)
-            # 将不同类型数据都返回放在不同列表中
-            user_id_list = [user["id"] for user in user_info]
-            name_list = [user["name"] for user in user_info]
-            day_duration_list = [user["day_duration"] for user in user_info]
-            picture_list = [user["picture"] for user in user_info]
-            return JSONResponse(content={"msg": True, "user_id_list": user_id_list, "name_list": name_list,
-                                         "day_duration_list": day_duration_list, "picture_list": picture_list,
-                                         "status_code": 200})
+            return JSONResponse(content={"msg": True, "info": user_info, "status_code": 200})
 
     except Exception as e:
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
@@ -999,14 +1040,7 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
                 user["week_duration"] = duration_info[user["id"]]
             # 排序
             user_info.sort(key=lambda x: x["week_duration"], reverse=True)
-            # 将不同类型数据都返回放在不同列表中
-            user_id_list = [user["id"] for user in user_info]
-            name_list = [user["name"] for user in user_info]
-            week_duration_list = [user["week_duration"] for user in user_info]
-            picture_list = [user["picture"] for user in user_info]
-            return JSONResponse(content={"msg": True, "user_id_list": user_id_list, "name_list": name_list,
-                                         "week_duration_list": week_duration_list, "picture_list": picture_list,
-                                         "status_code": 200})
+            return JSONResponse(content={"msg": True, "info": user_info, "status_code": 200})
 
     except Exception as e:
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
