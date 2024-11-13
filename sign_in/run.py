@@ -3,22 +3,18 @@
 
 """
 
+import cv2
+import requests
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QGuiApplication
-
 from PyQt5.QtWidgets import QMessageBox
-from UI.tryone import Ui_MainWindow
 from PyQt5 import QtWidgets
 from PyQt5 import QtGui
 from PyQt5 import QtCore
-from PyQt5.QtGui import QIcon
-from PyQt5.QtWidgets import QMainWindow
-import cv2
-
-import requests
+from PyQt5.QtGui import QIcon, QGuiApplication
+from UI.face import Ui_Form
 
 
-class face_MainWindow(QMainWindow, Ui_MainWindow):
+class face_MainWindow(QtWidgets.QWidget, Ui_Form):
     def __init__(self):
         super(face_MainWindow, self).__init__()
         self.setupUi(self)
@@ -82,11 +78,12 @@ class face_MainWindow(QMainWindow, Ui_MainWindow):
         # 获取所有值
         values = list(result.values())
         message = values[1]
-        if response.status_code == 200:
+        status_code = values[2]
+        if status_code == 200:
             QtWidgets.QMessageBox.information(self, '提示', f'{message}')
             # self.new_page()
             return
-        if response.status_code == 400:
+        if status_code == 400:
             QtWidgets.QMessageBox.warning(self, '警告', f'{message}')
             return
         else:
@@ -114,14 +111,15 @@ class face_MainWindow(QMainWindow, Ui_MainWindow):
         response = requests.post(url, files=files)
         result = response.json()
         print(result)
-        # 获取所有值
+
         values = list(result.values())
         message = values[1]
-        if response.status_code == 200:
+        status_code = values[2]
+        if status_code == 200:
             QtWidgets.QMessageBox.information(self, '提示', f'{message}')
             # self.new_page()
             return
-        if response.status_code == 400:
+        if status_code == 400:
             QtWidgets.QMessageBox.warning(self, '警告', f'{message}')
             return
         else:
@@ -133,36 +131,13 @@ class face_MainWindow(QMainWindow, Ui_MainWindow):
         # 关闭窗口
         self.close()
 
-
-#
-# if __name__ == "__main__":
-#     import sys
-#
-#     # QGuiApplication.setAttribute(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
-#
-#     app = QtWidgets.QApplication(sys.argv)
-#     # icon_1 = QIcon("UI/iocn.png")
-#     # app.setWindowIcon(icon_1)
-#     Form = QtWidgets.QWidget()
-#     ui = face_MainWindow()
-#     ui.setupUi(Form)
-#     Form.show()
-#     sys.exit(app.exec_())
-
-
-# if __name__ == "__main__":
-#     import sys
-#
-#     app = QtWidgets.QApplication(sys.argv)
-#     MainWindow = face_MainWindow()
-#     MainWindow.show()
-#     sys.exit(app.exec_())
 if __name__ == '__main__':
     import sys
+    from PyQt5.QtGui import QIcon
 
-    # QGuiApplication.setAttribute(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
+    QGuiApplication.setAttribute(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QtWidgets.QApplication(sys.argv)
-    icon_1 = QIcon("image/iocn.png")
+    icon_1 = QIcon("../UI/iocn.png")
     app.setWindowIcon(icon_1)
     main = face_MainWindow()
     main.show()

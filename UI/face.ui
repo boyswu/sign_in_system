@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>768</width>
-    <height>969</height>
+    <height>929</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -77,22 +77,6 @@
       <property name="bottomMargin">
        <number>10</number>
       </property>
-      <item>
-       <spacer name="verticalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeType">
-         <enum>QSizePolicy::Fixed</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>50</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_4">
         <item>
@@ -318,25 +302,6 @@ background-color: rgb(20, 20, 20);</string>
        </layout>
       </item>
       <item>
-       <layout class="QVBoxLayout" name="verticalLayout_3">
-        <item>
-         <widget class="QTextEdit" name="textEdit">
-          <property name="styleSheet">
-           <string notr="true">color: white;
-font-size: 20px</string>
-          </property>
-          <property name="html">
-           <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'SimSun'; font-size:20px; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot;-qt-paragraph-type:empty; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px; font-family:'.AppleSystemUIFont';&quot;&gt;&lt;br /&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </item>
-      <item>
        <layout class="QHBoxLayout" name="horizontalLayout_5">
         <item>
          <widget class="QPushButton" name="sign_in">
@@ -379,6 +344,32 @@ font-size: 20px;</string>
            </size>
           </property>
           <property name="styleSheet">
+           <string notr="true">background-color: qlineargradient(spread:pad, x1:0.492611, y1:0, x2:0.482759, y2:1, stop:0 rgba(0, 255, 28, 255), stop:1 rgba(50, 169, 107, 255));
+
+border-radius: 20px;
+color: #FFFFFF;
+font-size: 20px;</string>
+          </property>
+          <property name="text">
+           <string>签退</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="log_out">
+          <property name="minimumSize">
+           <size>
+            <width>221</width>
+            <height>51</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>221</width>
+            <height>51</height>
+           </size>
+          </property>
+          <property name="styleSheet">
            <string notr="true">background-color: qlineargradient(spread:pad, x1:0.492611, y1:0, x2:0.482759, y2:1, stop:0 rgba(255, 58, 0, 255), stop:1 rgba(169, 0, 0, 255));
 
 border-radius: 20px;
@@ -386,7 +377,7 @@ color: #FFFFFF;
 font-size: 20px</string>
           </property>
           <property name="text">
-           <string>签退</string>
+           <string>退出</string>
           </property>
          </widget>
         </item>

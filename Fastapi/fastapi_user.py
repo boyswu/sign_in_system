@@ -60,10 +60,10 @@ async def register_user(user_name: str = Form(...),
             _, _, people_face, similar = face_recognize(file_content)
 
             if similar is False:
-                return JSONResponse(content="登录失败,请确认人脸是否录入!!!\n若已录入请面向摄像头切勿遮挡人脸!!!",
-                                    status_code=400)
+                return JSONResponse(content={"msg": False, "error": "登录失败,请确认人脸是否录入!!!"
+                                                                    "\n若已录入请面向摄像头切勿遮挡人脸!!!", "status_code": 400})
             elif similar == 0:
-                return JSONResponse(content="人员不在库中,请联系管理员!!!", status_code=400)
+                return JSONResponse(content={"msg": False, "error": "人员不在库中,请联系管理员!!!", "status_code": 400})
             picture_url = f'http://43.143.229.40:9000/photo5/{random.randint(1, 6)}.jpg'
             if similar and float(similar) > 0.65:
                 sql = "SELECT * FROM user WHERE id = '{}'".format(user_id)
@@ -71,7 +71,7 @@ async def register_user(user_name: str = Form(...),
                 result = cursor.fetchall()
                 if result:
                     # 用户已存在
-                    return JSONResponse(content="该人员已注册！", status_code=400)
+                    return JSONResponse(content={"msg": False, "error": "该用户已注册", "status_code": 400})
                 else:
                     # 用户不存在，插入数据
                     sql = "INSERT INTO user (id, name,face,picture,password,email) VALUES (%s, %s, %s, %s, %s, %s)"
@@ -106,14 +106,15 @@ async def login(login: ToDoModel.login_user):
         with conn.cursor() as cursor:
             sql = "SELECT * FROM user WHERE id = '{}' AND password = '{}' ".format(User_id, Password)
             cursor.execute(sql)
-            result = cursor.fetchone()
+            result = cursor.fetchall()
             if result:
                 access_token_expires = timedelta(minutes=token.ACCESS_TOKEN_EXPIRE_MINUTES)
                 access_token = token.create_access_token(data={"sub": User_id}, expires_delta=access_token_expires)
                 if token.verify_token(access_token) is False:  # 有这样一个方法判断token是否过期
                     return JSONResponse(content={"msg": False, "error": "Token已过期", "status_code": 201})
                 else:
-                    return JSONResponse(content={"msg": True, "token": access_token, "status_code": 200})
+                    return JSONResponse(
+                        content={"msg": True, "token": access_token, "status_code": 200})
             else:
                 return JSONResponse(content={"msg": False, "error": "学号或密码错误", "status_code": 400})
     except Exception as e:
@@ -135,13 +136,15 @@ async def protected_route(access_Token: dict = Depends(token.verify_token)):
     conn = db_pool.get_connection()
     try:
         with conn.cursor() as cursor:
-            sql = "SELECT name FROM user WHERE id = '{}'".format(User_id)
+            sql = "SELECT * FROM user WHERE id = '{}'".format(User_id)
             cursor.execute(sql)
             result = cursor.fetchall()
-            Name = result[0][0]
+
             if result:
+                Name = result[0][1]
+                Picture = result[0][3]
                 return JSONResponse(
-                    content={"msg": True, "User_id": User_id, "Name": Name, "status_code": 200})
+                    content={"msg": True, "User_id": User_id, "Name": Name, "picture": Picture, "status_code": 200})
             else:
                 return JSONResponse(content={"msg": False, "error": "", "status_code": 400})
     except Exception as e:
@@ -316,8 +319,8 @@ async def sign_in(file: UploadFile = File(...)):
             else:
                 print("登录失败，提示用户")
                 # 登录失败，提示用户
-                return JSONResponse(content="登录失败,请确认人脸是否录入!!!\n若已录入请面向摄像头切勿遮挡人脸!!!",
-                                    status_code=400)
+                return JSONResponse(content={"msg": False, "error": "登录失败,请确认人脸是否录入!!!"
+                                                                    "\n若已录入请面向摄像头切勿遮挡人脸!!!", "status_code": 400})
 
     except Exception as e:
         conn.rollback()
@@ -494,6 +497,9 @@ async def face_sign_out(file: UploadFile = File(...)):
                             content={"msg": False, "error": "学习时长为0,不予记录！", "status_code": 400})
                 else:
                     return JSONResponse(content={"msg": False, "error": "您今天还未签到,请先签到！", "status_code": 400})
+            else:
+                return JSONResponse(content={"msg": False, "error": "登录失败,请确认人脸是否录入!!!"
+                                                                    "\n若已录入请面向摄像头切勿遮挡人脸!!!", "status_code": 400})
 
     except Exception as e:
         conn.rollback()
@@ -755,6 +761,8 @@ async def add_day_description(day_description: ToDoModel.description, access_Tok
                                                                                                         day_time.date())
             cursor.execute(sql)
             conn.commit()
+            if cursor.rowcount == 0:
+                return JSONResponse(content={"msg": False, "error": "今日未签到，无法添加心得", "status_code": 400})
             return JSONResponse(content={"msg": True, "description": description, "status_code": 200})
 
     except Exception as e:
@@ -794,6 +802,9 @@ async def add_live_situation(access_Token: dict = Depends(token.verify_token)):
 
             for user in user_info:
                 user["status"] = status_info[user["id"]]
+                # 排序将在场的用户排在前面
+            user_info.sort(key=lambda x: 0 if x["status"] == "在场" else 1)
+
             return JSONResponse(content={"msg": True, "info": user_info, "status_code": 200})
 
     except Exception as e:
