@@ -1,31 +1,25 @@
 """
 缓存工具验证码和验证邮箱的缓存工具
 """
-from cachetools import cached, TTLCache
 
-# 创建两个缓存对象，设置最大容量和过期时间（例如，100个条目，每个条目5分钟过期）
-email_to_code_cache = TTLCache(maxsize=100, ttl=900)
-code_to_email_cache = TTLCache(maxsize=100, ttl=900)
+from cachetools import TTLCache
 
-
-@cached(email_to_code_cache)
-def get_security_code(security_code):
-    print("Getting security code from database...")
-    return security_code
+# 创建一个缓存，最大容量为100，过期时间为5分钟（300秒）
+cache = TTLCache(maxsize=100, ttl=300)
 
 
-@cached(code_to_email_cache)
-def get_receiver_email(receiver_email):
-    print("Getting receiver email from database...")
-    return receiver_email
-# # 第一次调用，计算结果并缓存
-# print(get_data("key1"))  # 输出: Getting data from database... key1
-#
-# # 第二次调用，直接从缓存中获取结果
-# print(get_data("key1"))  # 输出: key1
-#
-# # 等待10秒后再次调用，缓存已过期，重新计算
-# import time
-#
-# time.sleep(10)
-# print(get_data("key1"))  # 输出: Getting data from database... key1
+# 添加数据到缓存的函数
+def set_cache(key, value):
+    cache[key] = value
+    print(f"设置缓存: {key} -> {value}")
+
+
+# 获取缓存数据的函数
+def get_cache(key):
+    if key in cache:
+        value = cache[key]
+        print(f"获取缓存: {key} -> {value}")
+        return value
+    else:
+        print(f"缓存未命中: {key} 已过期或不存在")
+        return None

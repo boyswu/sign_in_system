@@ -61,7 +61,8 @@ async def register_user(user_name: str = Form(...),
 
             if similar is False:
                 return JSONResponse(content={"msg": False, "error": "登录失败,请确认人脸是否录入!!!"
-                                                                    "\n若已录入请面向摄像头切勿遮挡人脸!!!", "status_code": 400})
+                                                                    "\n若已录入请面向摄像头切勿遮挡人脸!!!",
+                                             "status_code": 400})
             elif similar == 0:
                 return JSONResponse(content={"msg": False, "error": "人员不在库中,请联系管理员!!!", "status_code": 400})
             picture_url = f'http://43.143.229.40:9000/photo5/{random.randint(1, 6)}.jpg'
@@ -177,8 +178,7 @@ async def send_email(email: ToDoModel.get_email):
                 security_code = email_send.send_email(Email)
                 # 将receiver_email和security_code以key-value形式缓存起来
 
-                cache_code.get_receiver_email(Email)  # 两个缓存函数，分别缓存receiver_email和security_code
-                cache_code.get_security_code(security_code)  # 第一次调用，计算并缓存结果
+                cache_code.set_cache(Email, security_code)  # 缓存函数，分别存receiver_email和security_code
 
                 # 发送邮件
                 return JSONResponse(content={"msg": True, "info": "验证码已发送至邮箱,请注意查收", "status_code": 200})
@@ -199,18 +199,16 @@ async def verify_email(verify: ToDoModel.check_security_code):
     try:
         Email = verify.Email
         Security_code = verify.Security_code
+        print(Email, Security_code)
         # 验证验证码
-        security_code_in_cache = cache_code.get_security_code(Security_code)
-        email_in_cache = cache_code.get_receiver_email(Email)
+        security_code_in_cache = cache_code.get_cache(Email)
+        print(security_code_in_cache)
 
-        if security_code_in_cache is not None and email_in_cache is not None:
-            if security_code_in_cache == Security_code and email_in_cache == Email:
-                # 执行后续逻辑
-                return JSONResponse(content={"msg": True, "status_code": 200})
-            else:
-                return JSONResponse(content={"msg": False, "error": "验证码错误或邮箱不正确", "status_code": 400})
+        if security_code_in_cache == Security_code:
+            # 执行后续逻辑
+            return JSONResponse(content={"msg": True, "info": "验证码正确", "status_code": 200})
         else:
-            return JSONResponse(content={"msg": False, "error": "验证码或邮箱未找到", "status_code": 404})
+            return JSONResponse(content={"msg": False, "error": "验证码错误或邮箱不正确", "status_code": 400})
     except Exception as e:
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
 
@@ -230,8 +228,7 @@ async def modify_password(modify: ToDoModel.modify_password):
             Email = modify.Email
             Security_code = modify.Security_code
             # 验证验证码
-            if cache_code.get_security_code(Security_code) == Security_code and cache_code.get_receiver_email(
-                    Email) == Email:
+            if Security_code == cache_code.get_cache(Email):
                 # 修改密码
                 print(Password)
                 print(Email)
@@ -320,7 +317,8 @@ async def sign_in(file: UploadFile = File(...)):
                 print("登录失败，提示用户")
                 # 登录失败，提示用户
                 return JSONResponse(content={"msg": False, "error": "登录失败,请确认人脸是否录入!!!"
-                                                                    "\n若已录入请面向摄像头切勿遮挡人脸!!!", "status_code": 400})
+                                                                    "\n若已录入请面向摄像头切勿遮挡人脸!!!",
+                                             "status_code": 400})
 
     except Exception as e:
         conn.rollback()
@@ -499,7 +497,8 @@ async def face_sign_out(file: UploadFile = File(...)):
                     return JSONResponse(content={"msg": False, "error": "您今天还未签到,请先签到！", "status_code": 400})
             else:
                 return JSONResponse(content={"msg": False, "error": "登录失败,请确认人脸是否录入!!!"
-                                                                    "\n若已录入请面向摄像头切勿遮挡人脸!!!", "status_code": 400})
+                                                                    "\n若已录入请面向摄像头切勿遮挡人脸!!!",
+                                             "status_code": 400})
 
     except Exception as e:
         conn.rollback()
@@ -806,6 +805,49 @@ async def add_live_situation(access_Token: dict = Depends(token.verify_token)):
             user_info.sort(key=lambda x: 0 if x["status"] == "在场" else 1)
 
             return JSONResponse(content={"msg": True, "info": user_info, "status_code": 200})
+
+    except Exception as e:
+        conn.rollback()
+        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+    finally:
+        db_pool.close_connection(conn)
+
+
+# 删除用户
+@router.delete("/delete_user", summary="删除用户", description="删除用户", tags=['面面通'])
+async def delete_user(access_Token: dict = Depends(token.verify_token)):
+    """
+    删除用户
+    """
+    if access_Token is False:
+        return JSONResponse(content={"msg": False, "error": "登录已过期,请重新登录", "status_code": 401})
+    db_pool = MySQLConnectionPool()
+    conn = db_pool.get_connection()  # 获取数据库连接
+    # 获取用户id
+    User_id = access_Token.get('sub')
+    try:
+        with conn.cursor() as cursor:
+            sql = "SELECT picture FROM user WHERE id = '{}'".format(User_id)
+            cursor.execute(sql)
+            result = cursor.fetchall()
+            # 删除用户
+
+            sql5 = "DELETE FROM user WHERE id = '{}'".format(User_id)
+            sql2 = "DELETE FROM sign_time WHERE id = '{}'".format(User_id)
+            sql3 = "DELETE FROM day_time WHERE id = '{}'".format(User_id)
+            sql4 = "DELETE FROM week_time WHERE id = '{}'".format(User_id)
+            cursor.execute(sql5)
+            cursor.execute(sql2)
+            cursor.execute(sql3)
+            cursor.execute(sql4)
+            # 删除头像(不存在没有头像的用户)
+            if result:
+                picture = result[0][0]
+                Bucket_name = "photo"
+                object_name = picture.split('/')[-1]
+                await Threading_await.delete_file_from_minion_bag(Bucket_name, object_name)
+                conn.commit()
+                return JSONResponse(content={"msg": True, "info": "删除成功", "status_code": 200})
 
     except Exception as e:
         conn.rollback()

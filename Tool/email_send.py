@@ -2,30 +2,42 @@
 发送邮件验证码
 """
 import smtplib
+import random
+import base64
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import random
 
 
 # 生成随机的6位验证码
+
 def generate_security_code():
     return ''.join(random.choices('0123456789', k=6))
+
+
+def base64_encode_nickname(nickname):
+    # 编码为base64
+    encoded_bytes = base64.b64encode(nickname.encode('utf-8'))
+    encoded_str = encoded_bytes.decode('utf-8')
+    # 构造最终形式
+    return f"=?UTF-8?B?{encoded_str}?="
 
 
 def send_email(receiver_email):
     # 邮箱账号信息
     sender_email = "2976699191@qq.com"
-    password = "gypvlbmegjdtdfjb"
-
+    password = "lrqropzxnbmydcff"
+    security_code = generate_security_code()  # 使用随机生成的验证码
     # 创建邮件
     message = MIMEMultipart()
-    message["From"] = sender_email
-    message["To"] = receiver_email
-    message["Subject"] = "验证码"
-    security_code = generate_security_code()  # 使用随机生成的验证码
+    nickname = "咔咔"  # 中文昵称
+    encoded_nickname = base64_encode_nickname(nickname)
 
+    # 设置邮件头部
+    message["From"] = f"{encoded_nickname} <{sender_email}>"
+    message["To"] = receiver_email
+    message["Subject"] = f"咔咔 -邮箱验证码：{security_code}"
     # 邮件正文
-    body = f"验证码：{security_code}"
+    body = f"这是您的验证码:{security_code}请尽快进行验证。此邮件为系统邮件，请勿回复。"
     message.attach(MIMEText(body, "plain"))
 
     # 连接到QQ邮箱的SMTP服务器
