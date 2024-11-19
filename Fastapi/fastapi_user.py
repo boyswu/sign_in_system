@@ -14,7 +14,6 @@ import Tool.Threading_await as Threading_await
 from Tool.face_recognize import face_recognize
 from Tool.upload import upload_files
 from connect_tool.sql import MySQLConnectionPool
-
 from Tool.timer_task import run_schedule
 
 router = APIRouter()
