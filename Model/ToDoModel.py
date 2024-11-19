@@ -71,6 +71,13 @@ class modify_password(BaseModel):
     Security_code: Optional[str] = None
 
 
+class change_password(BaseModel):
+    """
+    Password:密码
+    """
+    Password: Optional[str] = None
+
+
 class login_token(BaseModel):
     """
     Token:登录token

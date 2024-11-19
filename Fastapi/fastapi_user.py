@@ -109,13 +109,16 @@ async def login(login: ToDoModel.login_user):
             cursor.execute(sql)
             result = cursor.fetchall()
             if result:
+                Name = result[0][1]
+                Picture = result[0][3]
                 access_token_expires = timedelta(minutes=token.ACCESS_TOKEN_EXPIRE_MINUTES)
                 access_token = token.create_access_token(data={"sub": User_id}, expires_delta=access_token_expires)
                 if token.verify_token(access_token) is False:  # 有这样一个方法判断token是否过期
                     return JSONResponse(content={"msg": False, "error": "Token已过期", "status_code": 201})
                 else:
                     return JSONResponse(
-                        content={"msg": True, "token": access_token, "status_code": 200})
+                        content={"msg": True, "User_id": User_id, "Name": Name, "picture": Picture,
+                                 'token': access_token, "status_code": 200})
             else:
                 return JSONResponse(content={"msg": False, "error": "学号或密码错误", "status_code": 400})
     except Exception as e:
@@ -124,10 +127,10 @@ async def login(login: ToDoModel.login_user):
         db_pool.close_connection(conn)
 
 
-@router.get("/get_Token", summary="Token获取信息", description="Token获取信息", tags=['面面通'])
+@router.get("/get_Token", summary="Token登录", description="Token登录", tags=['面面通'])
 async def protected_route(access_Token: dict = Depends(token.verify_token)):
     """
-    Token获取信息
+    Token登录
     """
     if access_Token is None:
         return JSONResponse(content={"msg": False, "error": "Token已过期", "status_code": 201})
@@ -144,8 +147,11 @@ async def protected_route(access_Token: dict = Depends(token.verify_token)):
             if result:
                 Name = result[0][1]
                 Picture = result[0][3]
+                access_token_expires = timedelta(minutes=token.ACCESS_TOKEN_EXPIRE_MINUTES)
+                access_token = token.create_access_token(data={"sub": User_id}, expires_delta=access_token_expires)
                 return JSONResponse(
-                    content={"msg": True, "User_id": User_id, "Name": Name, "picture": Picture, "status_code": 200})
+                    content={"msg": True, "User_id": User_id, "Name": Name, "picture": Picture,
+                             'token': access_token, "status_code": 200})
             else:
                 return JSONResponse(content={"msg": False, "error": "", "status_code": 400})
     except Exception as e:
@@ -214,11 +220,11 @@ async def verify_email(verify: ToDoModel.check_security_code):
 
 
 # 接收验证码和邮箱账号修改密码
-@router.post("/modify_password_by_email", summary="修改密码", description="接收验证码和邮箱账号修改密码",
+@router.post("/modify_password_by_email", summary="找回密码", description="接收验证码和邮箱账号找回密码",
              tags=['面面通'])
 async def modify_password(modify: ToDoModel.modify_password):
     """
-    修改密码
+    找回密码
     """
     db_pool = MySQLConnectionPool()
     conn = db_pool.get_connection()
@@ -242,6 +248,36 @@ async def modify_password(modify: ToDoModel.modify_password):
                     return JSONResponse(content={"msg": False, "error": "修改密码与原密码相同", "status_code": 400})
             else:
                 return JSONResponse(content={"msg": False, "error": "验证码错误或邮箱不正确", "status_code": 400})
+    except Exception as e:
+        conn.rollback()
+        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+    finally:
+        db_pool.close_connection(conn)
+
+
+@router.post("/change_password", summary="修改密码", description="接收验证码和邮箱账号修改密码",
+             tags=['面面通'])
+async def change_password(pd: ToDoModel.change_password, access_Token: dict = Depends(token.verify_token)):
+    """
+    修改密码
+    """
+    if access_Token is False:
+        return JSONResponse(content={"msg": False, "error": "登录已过期,请重新登录", "status_code": 401})
+
+    db_pool = MySQLConnectionPool()
+    conn = db_pool.get_connection()
+    password = password_utf.encrypt_password(pd.Password)
+    user_id = access_Token.get('sub')
+    try:
+        with conn.cursor() as cursor:
+
+            sql = "UPDATE user SET password = '{}' WHERE id = '{}'".format(password, user_id)
+            cursor.execute(sql)
+            conn.commit()
+            if cursor.rowcount > 0:
+                return JSONResponse(content={"msg": True, 'info': "修改密码成功", "status_code": 200})
+            else:
+                return JSONResponse(content={"msg": False, "error": "修改密码与原密码相同", "status_code": 400})
     except Exception as e:
         conn.rollback()
         return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
