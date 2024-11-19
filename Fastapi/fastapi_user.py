@@ -284,20 +284,33 @@ async def sign_in(file: UploadFile = File(...)):
 
                 cursor.execute(sql)
                 result = cursor.fetchall()
+                # 数据库中当天没有该用户的签到记录
                 if not result:
                     sql_2 = "INSERT INTO sign_time (id,name,begin_time) VALUES ('{}', '{}', '{}')".format(User_id,
                                                                                                           name,
                                                                                                           Current_time)
                     cursor.execute(sql_2)
                     conn.commit()
-                    return JSONResponse(
-                        content={"msg": True, "info": "{}签到成功".format(name), "status_code": 200})
+                    # 先查询，如果没有查到则插入
+                    select_sql = (
+                        "SELECT COUNT(*) FROM day_time WHERE id = '{}' AND DATE(date) = DATE('{}')"
+                    ).format(User_id, Current_time)
+                    cursor.execute(select_sql)
+                    result = cursor.fetchone()
+
+                    if result[0] == 0:  # 如果没有查到任何行
+                        insert_sql = ("INSERT INTO day_time (id, name, date,duration) "
+                                      "VALUES ('{}', '{}' ,'{}','{}')").format(User_id, name, Current_time, 0)
+                        cursor.execute(insert_sql)
+                        conn.commit()
+
+                    return JSONResponse(content={"msg": True, "info": "{}签到成功".format(name), "status_code": 200})
                 else:
 
                     being_time = result[0][0]
                     end_time = result[0][1]
                     print(being_time, end_time)
-
+                    #
                     if (being_time is None and end_time is None) or (being_time is not None and end_time is not None):
 
                         # 向数据库中插入签到记录
@@ -306,6 +319,18 @@ async def sign_in(file: UploadFile = File(...)):
                                                                                                               Current_time)
                         cursor.execute(sql_2)
                         conn.commit()
+                        # 先查询，如果没有查到则插入
+                        select_sql = (
+                            "SELECT COUNT(*) FROM day_time WHERE id = '{}' AND DATE(date) = DATE('{}')"
+                        ).format(User_id, Current_time)
+                        cursor.execute(select_sql)
+                        result = cursor.fetchone()
+
+                        if result[0] == 0:  # 如果没有查到任何行
+                            insert_sql = ("INSERT INTO day_time (id, name, date,duration) "
+                                          "VALUES ('{}', '{}' ,'{}','{}')").format(User_id, name, Current_time, 0)
+                            cursor.execute(insert_sql)
+                            conn.commit()
                         return JSONResponse(
                             content={"msg": True, "info": "{}签到成功".format(name), "status_code": 200})
 
