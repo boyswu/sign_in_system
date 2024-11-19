@@ -152,5 +152,4 @@ class description(BaseModel):
     daty:日期
     Description:描述
     """
-
     description: Optional[str] = None

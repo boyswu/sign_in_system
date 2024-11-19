@@ -18,7 +18,6 @@ from connect_tool.sql import MySQLConnectionPool
 from Tool.timer_task import run_schedule
 
 router = APIRouter()
-
 # import logging
 #
 # logging.basicConfig(level=logging.DEBUG)
