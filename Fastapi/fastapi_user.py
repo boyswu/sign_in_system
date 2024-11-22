@@ -1,6 +1,7 @@
 import os
 import threading
 import random
+
 from decimal import Decimal, ROUND_DOWN
 from fastapi import Form, File, UploadFile, Depends, APIRouter
 from fastapi.responses import JSONResponse
@@ -752,13 +753,31 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
                     Decimal('0.00'), rounding=ROUND_DOWN)
                 duration_info[user_id] += float(duration)
 
-            # # 查询在上周四到本周三内的学习时长（包括上周四和下周三）
+            # 查询在上周四到本周三内的学习时长（包括上周四和下周三）
             cursor.execute("""SELECT id, duration FROM week_time 
-                WHERE date >= DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) - 4) DAY) 
-                  AND date <= DATE_ADD(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) - 4) DAY), INTERVAL 6 DAY)
+                WHERE date >= DATE_ADD(CURDATE(), INTERVAL (3 - WEEKDAY(CURDATE())) DAY) 
+                  AND date <= DATE_ADD(DATE_ADD(CURDATE(), INTERVAL (3 - WEEKDAY(CURDATE())) DAY), INTERVAL 6 DAY)
             """)
             week_time_records = cursor.fetchall()
-
+            # today = datetime.today()
+            # # 计算本周四的日期
+            # days_until_thursday = (3 - today.weekday()) % 7  # 计算本周四与今天的天数差
+            # this_thursday = today + timedelta(days=days_until_thursday)
+            #
+            # # 判断今天的星期几，决定起始日期
+            # if today.weekday() >= 4:  # 如果今天是周五(4)或周六(5)
+            #     start_date = this_thursday  # 从本周四开始
+            # else:  # 如果今天是周日(6)、周一(0)、周二(1)、周三(2)
+            #     start_date = this_thursday - timedelta(weeks=1)  # 从上周四开始
+            #
+            # # 执行查询
+            # cursor.execute("""
+            #            SELECT id, duration
+            #            FROM week_time
+            #            WHERE date >= %s
+            #              AND date <= %s
+            #        """, (start_date, today))
+            # week_time_records = cursor.fetchall()
             # 将本周学习时长添加到用户信息
             for user_id, week_duration in week_time_records:
                 duration_info[user_id] += round(week_duration, 2)
