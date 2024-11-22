@@ -438,10 +438,18 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
                                                                                duration)
                         cursor.execute(insert_sql)
 
+                    # # 如果记录存在，则更新其时长
+                    # update_week_time_sql = ("UPDATE week_time SET duration = duration +'{}' "
+                    #                         "WHERE id = '{}' AND  YEARWEEK(date) = YEARWEEK(NOW())").format(duration,
+                    #                                                                                         User_id)
+                    # cursor.execute(update_week_time_sql)
                     # 如果记录存在，则更新其时长
                     update_week_time_sql = ("UPDATE week_time SET duration = duration +'{}' "
-                                            "WHERE id = '{}' AND  YEARWEEK(date) = YEARWEEK(NOW())").format(duration,
-                                                                                                            User_id)
+                                            "WHERE id = '{}' AND date >= DATE_SUB(CURDATE(), INTERVAL (WEEKDAY("
+                                            "CURDATE()) + 3) DAY)"
+                                            "AND date < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) "
+                                            "+ 3) DAY), INTERVAL 6 DAY)").format(
+                        duration, User_id)
                     cursor.execute(update_week_time_sql)
                     if cursor.rowcount == 0:  # 如果没有更新到任何行
                         # 如果记录不存在，则插入新记录
@@ -529,11 +537,18 @@ async def face_sign_out(file: UploadFile = File(...)):
                                                                                   duration)
                             cursor.execute(insert_sql)
 
+                        # # 如果记录存在，则更新其时长
+                        # update_week_time_sql = ("UPDATE week_time SET duration = duration +'{}' "
+                        #                         "WHERE id = '{}' AND  YEARWEEK(date) = YEARWEEK(NOW())").format(
+                        #     duration,
+                        #     User_id)
                         # 如果记录存在，则更新其时长
                         update_week_time_sql = ("UPDATE week_time SET duration = duration +'{}' "
-                                                "WHERE id = '{}' AND  YEARWEEK(date) = YEARWEEK(NOW())").format(
-                            duration,
-                            User_id)
+                                                "WHERE id = '{}' AND date >= DATE_SUB(CURDATE(), INTERVAL (WEEKDAY("
+                                                "CURDATE()) + 3) DAY)"
+                                                "AND date < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) "
+                                                "+ 3) DAY), INTERVAL 6 DAY)").format(
+                            duration, User_id)
                         cursor.execute(update_week_time_sql)
                         if cursor.rowcount == 0:  # 如果没有更新到任何行
                             # 如果记录不存在，则插入新记录
@@ -642,11 +657,71 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
         db_pool.close_connection(conn)
 
 
-@router.get("/get_week_all_study_time", summary="获取所有人一周的学习排名", description="获取所有人一周的学习排名",
+@router.get("/sunday_get_week_all_study_time", summary="获取所有人一周的学习排名",
+            description="获取所有人一周的学习排名",
+            tags=['面面通'])
+async def sunday_get_week_all_study_time(access_Token: dict = Depends(token.verify_token)):
+    """
+    获取所有人一周的学习排名,从周日开始
+    """
+    if access_Token is False:
+        return JSONResponse(content={"msg": False, "error": "登录已过期,请重新登录", "status_code": 401})
+
+    db_pool = MySQLConnectionPool()
+    conn = db_pool.get_connection()
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id, name, picture FROM user")
+            results = cursor.fetchall()
+            if not results:
+                return JSONResponse(content={"msg": False, "error": "用户信息获取失败", "status_code": 400})
+
+            # 初始化用户信息
+            user_info = [{"id": user[0], "name": user[1], "duration": 0, "picture": user[2]} for user in results]
+            #
+            # # 查询本周内的签到记录
+            # cursor.execute(
+            #     "SELECT id, begin_time FROM sign_time WHERE YEARWEEK(begin_time) = YEARWEEK(NOW()) AND end_time IS NULL")
+            # sign_in_records = cursor.fetchall()
+            #查询当天的签到记录（begin_time 为当天且 end_time 为 NULL）
+            cursor.execute(
+                "SELECT id, begin_time FROM sign_time WHERE DATE(begin_time) = CURDATE() AND end_time IS NULL")
+            sign_in_records = cursor.fetchall()
+
+            current_time = datetime.now()
+            duration_info = {user["id"]: 0 for user in user_info}  # 初始化学习时长字典
+
+            # 计算签到用户的学习时长
+            for user_id, begin_time in sign_in_records:
+                duration = (Decimal((current_time - begin_time).total_seconds()) / Decimal(3600)).quantize(
+                    Decimal('0.00'), rounding=ROUND_DOWN)
+                duration_info[user_id] += float(duration)
+
+            # 查询本周的学习时长
+            cursor.execute("SELECT id, duration FROM week_time WHERE YEARWEEK(date) = YEARWEEK(NOW())")
+            week_time_records = cursor.fetchall()
+
+            # 将本周学习时长添加到用户信息
+            for user_id, week_duration in week_time_records:
+                duration_info[user_id] += round(week_duration, 2)
+
+            for user in user_info:
+                user["duration"] = round(duration_info[user["id"]], 2)  # 保留两位小数
+            # 排序
+            user_info.sort(key=lambda x: x["duration"], reverse=True)
+            return JSONResponse(content={"msg": True, "info": user_info, "status_code": 200})
+
+    except Exception as e:
+        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+    finally:
+        db_pool.close_connection(conn)
+
+
+@router.get("/get_week_all_study_time", summary="获取所有人一周的学习排名,从周三开始", description="获取所有人一周的学习排名,从周三开始",
             tags=['面面通'])
 async def get_week_all_study_time(access_Token: dict = Depends(token.verify_token)):
     """
-    获取所有人一周的学习排名
+    获取所有人一周的学习排名,从周三开始
     """
     if access_Token is False:
         return JSONResponse(content={"msg": False, "error": "登录已过期,请重新登录", "status_code": 401})
@@ -665,7 +740,7 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
 
             # 查询本周内的签到记录
             cursor.execute(
-                "SELECT id, begin_time FROM sign_time WHERE YEARWEEK(begin_time) = YEARWEEK(NOW()) AND end_time IS NULL")
+                "SELECT id, begin_time FROM sign_time WHERE DATE(begin_time) = CURDATE() AND end_time IS NULL")
             sign_in_records = cursor.fetchall()
 
             current_time = datetime.now()
@@ -677,8 +752,11 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
                     Decimal('0.00'), rounding=ROUND_DOWN)
                 duration_info[user_id] += float(duration)
 
-            # 查询本周的学习时长
-            cursor.execute("SELECT id, duration FROM week_time WHERE YEARWEEK(date) = YEARWEEK(NOW())")
+            # # 查询在上周四到本周三内的学习时长（包括上周四和下周三）
+            cursor.execute("""SELECT id, duration FROM week_time 
+                WHERE date >= DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 3) DAY) 
+                  AND date <= DATE_ADD(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 3) DAY), INTERVAL 6 DAY)
+            """)
             week_time_records = cursor.fetchall()
 
             # 将本周学习时长添加到用户信息
@@ -722,7 +800,7 @@ async def get_one_study_time(access_Token: dict = Depends(token.verify_token)):
 
             # 查询day_time表中该用户14天的学习时长,日期,心得不包括今天的记录
             sql_2 = ("SELECT DATE(date), duration, description FROM day_time WHERE id = '{}' AND DATE(date) NOT IN ("
-                     "CURDATE()) AND DATE(date) >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)").format(User_id)
+                     "CURDATE()) AND DATE(date) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)").format(User_id)
             cursor.execute(sql_2)
             result = cursor.fetchall()
             date = [date.strftime("%m-%d") for date, duration, description in result]  # 使用列表生成式
@@ -848,18 +926,21 @@ async def add_live_situation(access_Token: dict = Depends(token.verify_token)):
             if not results:
                 return JSONResponse(content={"msg": False, "error": "用户信息获取失败", "status_code": 400})
             # 初始化用户信息
-            user_info = [{"id": user[0], "name": user[1], "picture": user[2], "status": ""} for user in results]
+            user_info = [{"id": user[0], "name": user[1], "picture": user[2], "bool_status": "", "status": ""} for user
+                         in results]
 
             # 查询今天签到记录
             cursor.execute(
                 "SELECT id FROM sign_time WHERE DATE(begin_time) = CURDATE() AND end_time IS NULL")
             results2 = cursor.fetchall()
             status_info = {user["id"]: "离开" for user in user_info}  # 初始化状态字典
+            bool_status_info = {user["id"]: 'False' for user in user_info}  # 初始化状态字典
             for user_id in results2:
                 status_info[user_id[0]] = '在场'
-
+                bool_status_info[user_id[0]] = 'True'
             for user in user_info:
                 user["status"] = status_info[user["id"]]
+                user["bool_status"] = bool_status_info[user["id"]]
                 # 排序将在场的用户排在前面
             user_info.sort(key=lambda x: 0 if x["status"] == "在场" else 1)
 

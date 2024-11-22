@@ -2,6 +2,7 @@ import schedule
 import time
 from connect_tool.sql import MySQLConnectionPool
 from datetime import datetime
+from Tool.email_send import send_warning_email
 
 """
 定时任务
@@ -14,8 +15,43 @@ def my_function():
     conn = db_pool.get_connection()
     try:
         with conn.cursor() as cursor:
+            # # 获取当前时间
+            # create_time = datetime.now()
+            # select_sql = """
+            #             SELECT u.email
+            #             FROM sign_time s
+            #             JOIN user u ON s.id = u.id
+            #             WHERE s.end_time IS NULL
+            #             """
+            # # 获取所有未签退记录
+            # select_sql = "SELECT id FROM sign_time WHERE end_time IS NULL"
+            # cursor.execute(select_sql)
+            # result = cursor.fetchall()
+            # ids = [item[0] for item in result]
+            # for id in ids:
+            #     # 查询用户表里的email
+            #     select_user_sql = "SELECT email FROM user WHERE id = {}".format(id)
+            #     cursor.execute(select_user_sql)
+            #     result = cursor.fetchall()
+            #     email = result[0][0]
+            #     send_warning_email(email)
             # 获取当前时间
             create_time = datetime.now()
+            # 获取所有未签退记录的用户email
+            select_sql = """
+            SELECT u.email 
+            FROM sign_time s 
+            JOIN user u ON s.id = u.id 
+            WHERE s.end_time IS NULL
+            """
+            cursor.execute(select_sql)
+            emails = cursor.fetchall()
+
+            # 发送警告邮件
+            for email_tuple in emails:
+                email = email_tuple[0]
+                send_warning_email(email)
+
             # 修改所有未签退记录的end_time为当前时间
             update_sql = ("UPDATE sign_time SET end_time = '{}',duration = '{}',status = '{}' "
                           "WHERE end_time IS NULL").format(create_time, 0, '未签退')
