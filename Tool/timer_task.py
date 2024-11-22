@@ -38,12 +38,7 @@ def my_function():
             # 获取当前时间
             create_time = datetime.now()
             # 获取所有未签退记录的用户email
-            select_sql = """
-            SELECT u.email 
-            FROM sign_time s 
-            JOIN user u ON s.id = u.id 
-            WHERE s.end_time IS NULL
-            """
+            select_sql = "SELECT u.email FROM sign_time s JOIN user u ON s.id = u.id  WHERE s.end_time IS NULL"
             cursor.execute(select_sql)
             emails = cursor.fetchall()
 

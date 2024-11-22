@@ -446,9 +446,9 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
                     # 如果记录存在，则更新其时长
                     update_week_time_sql = ("UPDATE week_time SET duration = duration +'{}' "
                                             "WHERE id = '{}' AND date >= DATE_SUB(CURDATE(), INTERVAL (WEEKDAY("
-                                            "CURDATE()) + 3) DAY)"
+                                            "CURDATE()) - 4) DAY)"
                                             "AND date < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) "
-                                            "+ 3) DAY), INTERVAL 6 DAY)").format(
+                                            "- 4) DAY), INTERVAL 6 DAY)").format(
                         duration, User_id)
                     cursor.execute(update_week_time_sql)
                     if cursor.rowcount == 0:  # 如果没有更新到任何行
@@ -545,9 +545,9 @@ async def face_sign_out(file: UploadFile = File(...)):
                         # 如果记录存在，则更新其时长
                         update_week_time_sql = ("UPDATE week_time SET duration = duration +'{}' "
                                                 "WHERE id = '{}' AND date >= DATE_SUB(CURDATE(), INTERVAL (WEEKDAY("
-                                                "CURDATE()) + 3) DAY)"
+                                                "CURDATE()) - 4) DAY)"
                                                 "AND date < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) "
-                                                "+ 3) DAY), INTERVAL 6 DAY)").format(
+                                                "- 4) DAY), INTERVAL 6 DAY)").format(
                             duration, User_id)
                         cursor.execute(update_week_time_sql)
                         if cursor.rowcount == 0:  # 如果没有更新到任何行
@@ -754,8 +754,8 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
 
             # # 查询在上周四到本周三内的学习时长（包括上周四和下周三）
             cursor.execute("""SELECT id, duration FROM week_time 
-                WHERE date >= DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 3) DAY) 
-                  AND date <= DATE_ADD(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 3) DAY), INTERVAL 6 DAY)
+                WHERE date >= DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) - 4) DAY) 
+                  AND date <= DATE_ADD(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) - 4) DAY), INTERVAL 6 DAY)
             """)
             week_time_records = cursor.fetchall()
 
