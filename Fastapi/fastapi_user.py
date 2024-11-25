@@ -932,7 +932,7 @@ async def add_live_situation(access_Token: dict = Depends(token.verify_token)):
             if not results:
                 return JSONResponse(content={"msg": False, "error": "用户信息获取失败", "status_code": 400})
             # 初始化用户信息
-            user_info = [{"id": user[0], "name": user[1], "picture": user[2], "bool_status": "", "status": ""} for user
+            user_info = [{"id": user[0], "name": user[1], "picture": user[2], "bool_status": False, "status": ""} for user
                          in results]
 
             # 查询今天签到记录
@@ -940,10 +940,10 @@ async def add_live_situation(access_Token: dict = Depends(token.verify_token)):
                 "SELECT id FROM sign_time WHERE DATE(begin_time) = CURDATE() AND end_time IS NULL")
             results2 = cursor.fetchall()
             status_info = {user["id"]: "离开" for user in user_info}  # 初始化状态字典
-            bool_status_info = {user["id"]: 'False' for user in user_info}  # 初始化状态字典
+            bool_status_info = {user["id"]: False for user in user_info}  # 初始化状态字典
             for user_id in results2:
                 status_info[user_id[0]] = '在场'
-                bool_status_info[user_id[0]] = 'True'
+                bool_status_info[user_id[0]] = True
             for user in user_info:
                 user["status"] = status_info[user["id"]]
                 user["bool_status"] = bool_status_info[user["id"]]
