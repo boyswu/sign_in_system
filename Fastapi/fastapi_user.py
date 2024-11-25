@@ -41,7 +41,7 @@ def startup_event():
 """
 
 
-@router.post("/register_mission", summary="注册用户", description="注册用户", tags=['面面通'])
+@router.post("/register_mission", summary="注册用户", description="注册用户", tags=['咔咔'])
 async def register_user(user_name: str = Form(...),
                         user_id: str = Form(...),
                         Password: str = Form(...),
@@ -93,7 +93,7 @@ async def register_user(user_name: str = Form(...),
         db_pool.close_connection(conn)
 
 
-@router.post("/login", summary="账号密码登录", description="账号密码登录", tags=['面面通'])
+@router.post("/login", summary="账号密码登录", description="账号密码登录", tags=['咔咔'])
 async def login(login: ToDoModel.login_user):
     """
     账号密码登录
@@ -126,7 +126,7 @@ async def login(login: ToDoModel.login_user):
         db_pool.close_connection(conn)
 
 
-@router.get("/get_Token", summary="Token登录", description="Token登录", tags=['面面通'])
+@router.get("/get_Token", summary="Token登录", description="Token登录", tags=['咔咔'])
 async def protected_route(access_Token: dict = Depends(token.verify_token)):
     """
     Token登录
@@ -166,7 +166,7 @@ async def protected_route(access_Token: dict = Depends(token.verify_token)):
 """
 
 
-@router.post("/send_email", summary="发送验证码", description="发送邮件,发送验证码", tags=['面面通'])
+@router.post("/send_email", summary="发送验证码", description="发送邮件,发送验证码", tags=['咔咔'])
 async def send_email(email: ToDoModel.get_email):
     """
     发送邮件
@@ -196,7 +196,7 @@ async def send_email(email: ToDoModel.get_email):
 
 
 # 验证验证码
-@router.post("/verify_email", summary="验证验证码", description="验证验证码", tags=['面面通'])
+@router.post("/verify_email", summary="验证验证码", description="验证验证码", tags=['咔咔'])
 async def verify_email(verify: ToDoModel.check_security_code):
     """
     验证验证码
@@ -220,7 +220,7 @@ async def verify_email(verify: ToDoModel.check_security_code):
 
 # 接收验证码和邮箱账号修改密码
 @router.post("/modify_password_by_email", summary="找回密码", description="接收验证码和邮箱账号找回密码",
-             tags=['面面通'])
+             tags=['咔咔'])
 async def modify_password(modify: ToDoModel.modify_password):
     """
     找回密码
@@ -255,7 +255,7 @@ async def modify_password(modify: ToDoModel.modify_password):
 
 
 @router.post("/change_password", summary="修改密码", description="接收验证码和邮箱账号修改密码",
-             tags=['面面通'])
+             tags=['咔咔'])
 async def change_password(pd: ToDoModel.change_password, access_Token: dict = Depends(token.verify_token)):
     """
     修改密码
@@ -290,7 +290,7 @@ async def change_password(pd: ToDoModel.change_password, access_Token: dict = De
 """
 
 
-@router.post("/sign_in", summary="签到", description="签到", tags=['面面通'])
+@router.post("/sign_in", summary="签到", description="签到", tags=['咔咔'])
 async def sign_in(file: UploadFile = File(...)):
     """
     签到
@@ -387,7 +387,7 @@ async def sign_in(file: UploadFile = File(...)):
         db_pool.close_connection(conn)
 
 
-@router.post("/sign_out", summary="签退", description="签退", tags=['面面通'])
+@router.post("/sign_out", summary="签退", description="签退", tags=['咔咔'])
 async def sign_out(access_Token: dict = Depends(token.verify_token)):
     """
     签退
@@ -479,7 +479,7 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
         db_pool.close_connection(conn)
 
 
-@router.post("/face_sign_out", summary="人脸签退", description="人脸签退", tags=['面面通'])
+@router.post("/face_sign_out", summary="人脸签退", description="人脸签退", tags=['咔咔'])
 async def face_sign_out(file: UploadFile = File(...)):
     """
     人脸签退
@@ -584,7 +584,7 @@ async def face_sign_out(file: UploadFile = File(...)):
 
 
 @router.get("/get_all_study_time", summary="获取所有人一天的学习排名", description="获取所有人一天的学习排名",
-            tags=['面面通'])
+            tags=['咔咔'])
 async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
     """
     获取所有人一天的学习排名
@@ -660,7 +660,7 @@ async def get_all_study_time(access_Token: dict = Depends(token.verify_token)):
 
 @router.get("/sunday_get_week_all_study_time", summary="获取所有人一周的学习排名",
             description="获取所有人一周的学习排名",
-            tags=['面面通'])
+            tags=['咔咔'])
 async def sunday_get_week_all_study_time(access_Token: dict = Depends(token.verify_token)):
     """
     获取所有人一周的学习排名,从周日开始
@@ -719,7 +719,7 @@ async def sunday_get_week_all_study_time(access_Token: dict = Depends(token.veri
 
 
 @router.get("/get_week_all_study_time", summary="获取所有人一周的学习排名,从周三开始", description="获取所有人一周的学习排名,从周三开始",
-            tags=['面面通'])
+            tags=['咔咔'])
 async def get_week_all_study_time(access_Token: dict = Depends(token.verify_token)):
     """
     获取所有人一周的学习排名,从周三开始
@@ -783,7 +783,7 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
 
 @router.get("/get_one_study_time", summary="获取一个人七天的学习时长",
             description="获取一个人七天的学习时长",
-            tags=['面面通'])
+            tags=['咔咔'])
 async def get_one_study_time(access_Token: dict = Depends(token.verify_token)):
     """
     获取一个人七天的学习时长
@@ -821,7 +821,7 @@ async def get_one_study_time(access_Token: dict = Depends(token.verify_token)):
         db_pool.close_connection(conn)
 
 
-@router.post("/upload_file", summary="上传/修改头像", description="上传/修改头像", tags=['面面通'])
+@router.post("/upload_file", summary="上传/修改头像", description="上传/修改头像", tags=['咔咔'])
 async def upload_file(file: UploadFile = File(...), access_Token: dict = Depends(token.verify_token)):
     """
     上传/修改头像
@@ -880,7 +880,7 @@ async def upload_file(file: UploadFile = File(...), access_Token: dict = Depends
 
 
 # 添加每日心得
-@router.post("/add_day_description", summary="添加每日心得", description="添加每日心得", tags=['面面通'])
+@router.post("/add_day_description", summary="添加每日心得", description="添加每日心得", tags=['咔咔'])
 async def add_day_description(day_description: ToDoModel.description, access_Token: dict = Depends(token.verify_token)):
     """
     添加每日心得
@@ -915,7 +915,7 @@ async def add_day_description(day_description: ToDoModel.description, access_Tok
 
 
 # 现场情况
-@router.post("/add_live_situation", summary="现场情况", description="现场情况", tags=['面面通'])
+@router.post("/add_live_situation", summary="现场情况", description="现场情况", tags=['咔咔'])
 async def add_live_situation(access_Token: dict = Depends(token.verify_token)):
     """
     现场情况
@@ -960,7 +960,7 @@ async def add_live_situation(access_Token: dict = Depends(token.verify_token)):
 
 
 # 删除用户
-@router.delete("/delete_user", summary="删除用户", description="删除用户", tags=['面面通'])
+@router.delete("/delete_user", summary="删除用户", description="删除用户", tags=['咔咔'])
 async def delete_user(access_Token: dict = Depends(token.verify_token)):
     """
     删除用户
