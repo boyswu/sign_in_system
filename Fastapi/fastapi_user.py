@@ -445,12 +445,12 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
                     #                                                                                         User_id)
                     # cursor.execute(update_week_time_sql)
                     # 如果记录存在，则更新其时长
-                    update_week_time_sql = ("UPDATE week_time SET duration = duration +'{}' "
-                                            "WHERE id = '{}' AND date >= DATE_SUB(CURDATE(), INTERVAL (WEEKDAY("
-                                            "CURDATE()) - 4) DAY)"
-                                            "AND date < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) "
-                                            "- 4) DAY), INTERVAL 6 DAY)").format(
-                        duration, User_id)
+                    update_week_time_sql = ("""UPDATE week_time SET duration = duration +'{}'WHERE id = '{}' 
+                                            AND date >= CASE
+                                                WHEN WEEKDAY(CURDATE()) IN (0, 1, 2) THEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 4) DAY)
+                                                ELSE DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) - 3) DAY)
+                                            END""").format(duration, User_id)
+
                     cursor.execute(update_week_time_sql)
                     if cursor.rowcount == 0:  # 如果没有更新到任何行
                         # 如果记录不存在，则插入新记录
@@ -544,12 +544,12 @@ async def face_sign_out(file: UploadFile = File(...)):
                         #     duration,
                         #     User_id)
                         # 如果记录存在，则更新其时长
-                        update_week_time_sql = ("UPDATE week_time SET duration = duration +'{}' "
-                                                "WHERE id = '{}' AND date >= DATE_SUB(CURDATE(), INTERVAL (WEEKDAY("
-                                                "CURDATE()) - 4) DAY)"
-                                                "AND date < DATE_ADD(DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) "
-                                                "- 4) DAY), INTERVAL 6 DAY)").format(
-                            duration, User_id)
+                        update_week_time_sql = ("""UPDATE week_time SET duration = duration +'{}'WHERE id = '{}' 
+                                                AND date >= CASE
+                                                    WHEN WEEKDAY(CURDATE()) IN (0, 1, 2) THEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 4) DAY)
+                                                    ELSE DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) - 3) DAY)
+                                                END""").format(duration, User_id)
+
                         cursor.execute(update_week_time_sql)
                         if cursor.rowcount == 0:  # 如果没有更新到任何行
                             # 如果记录不存在，则插入新记录
@@ -754,30 +754,17 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
                 duration_info[user_id] += float(duration)
 
             # 查询在上周四到本周三内的学习时长（包括上周四和下周三）
+
             cursor.execute("""SELECT id, duration FROM week_time 
-                WHERE date >= DATE_ADD(CURDATE(), INTERVAL (3 - WEEKDAY(CURDATE())) DAY) 
-                  AND date <= DATE_ADD(DATE_ADD(CURDATE(), INTERVAL (3 - WEEKDAY(CURDATE())) DAY), INTERVAL 6 DAY)
-            """)
+                            WHERE date >= CASE
+                                WHEN WEEKDAY(CURDATE()) IN (0, 1, 2) THEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 4) DAY)
+                                ELSE DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) - 3) DAY)
+                            END
+                            AND date <= CURDATE();
+                            """)
+
             week_time_records = cursor.fetchall()
-            # today = datetime.today()
-            # # 计算本周四的日期
-            # days_until_thursday = (3 - today.weekday()) % 7  # 计算本周四与今天的天数差
-            # this_thursday = today + timedelta(days=days_until_thursday)
-            #
-            # # 判断今天的星期几，决定起始日期
-            # if today.weekday() >= 4:  # 如果今天是周五(4)或周六(5)
-            #     start_date = this_thursday  # 从本周四开始
-            # else:  # 如果今天是周日(6)、周一(0)、周二(1)、周三(2)
-            #     start_date = this_thursday - timedelta(weeks=1)  # 从上周四开始
-            #
-            # # 执行查询
-            # cursor.execute("""
-            #            SELECT id, duration
-            #            FROM week_time
-            #            WHERE date >= %s
-            #              AND date <= %s
-            #        """, (start_date, today))
-            # week_time_records = cursor.fetchall()
+
             # 将本周学习时长添加到用户信息
             for user_id, week_duration in week_time_records:
                 duration_info[user_id] += round(week_duration, 2)
@@ -931,7 +918,7 @@ async def add_day_description(day_description: ToDoModel.description, access_Tok
 @router.post("/add_live_situation", summary="现场情况", description="现场情况", tags=['面面通'])
 async def add_live_situation(access_Token: dict = Depends(token.verify_token)):
     """
-    添加现场情况
+    现场情况
     """
     if access_Token is False:
         return JSONResponse(content={"msg": False, "error": "登录已过期,请重新登录", "status_code": 401})
