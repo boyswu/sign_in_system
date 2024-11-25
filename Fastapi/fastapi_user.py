@@ -334,8 +334,8 @@ async def sign_in(file: UploadFile = File(...)):
                     result = cursor.fetchone()
 
                     if result[0] == 0:  # 如果没有查到任何行
-                        insert_sql = ("INSERT INTO day_time (id, name, date,duration) "
-                                      "VALUES ('{}', '{}' ,'{}','{}')").format(User_id, name, Current_time, 0)
+                        insert_sql = ("INSERT INTO day_time (id, name,description, date,duration) "
+                                      "VALUES ('{}', '{}' ,'{}','{}','{}')").format(User_id, name,"无", Current_time, 0)
                         cursor.execute(insert_sql)
                         conn.commit()
 
@@ -362,8 +362,8 @@ async def sign_in(file: UploadFile = File(...)):
                         result = cursor.fetchone()
 
                         if result[0] == 0:  # 如果没有查到任何行
-                            insert_sql = ("INSERT INTO day_time (id, name, date,duration) "
-                                          "VALUES ('{}', '{}' ,'{}','{}')").format(User_id, name, Current_time, 0)
+                            insert_sql = ("INSERT INTO day_time (id, name, description,date,duration) "
+                                          "VALUES ('{}', '{}' ,'{}','{}','{}')").format(User_id, name,"无", Current_time, 0)
                             cursor.execute(insert_sql)
                             conn.commit()
                         return JSONResponse(
@@ -434,8 +434,8 @@ async def sign_out(access_Token: dict = Depends(token.verify_token)):
                     cursor.execute(update_sql)
 
                     if cursor.rowcount == 0:  # 如果没有更新到任何行
-                        insert_sql = ("INSERT INTO day_time (id, name, date, duration) "
-                                      "VALUES ('{}', '{}' ,'{}','{}')").format(User_id, name, Current_time,
+                        insert_sql = ("INSERT INTO day_time (id, name, description,date, duration) "
+                                      "VALUES ('{}', '{}' ,'{}','{}','{}')").format(User_id, name,"无", Current_time,
                                                                                duration)
                         cursor.execute(insert_sql)
 
@@ -533,8 +533,8 @@ async def face_sign_out(file: UploadFile = File(...)):
                         cursor.execute(update_sql)
 
                         if cursor.rowcount == 0:  # 如果没有更新到任何行
-                            insert_sql = ("INSERT INTO day_time (id, name, date, duration) "
-                                          "VALUES ('{}', '{}','{}','{}')").format(User_id, name, Current_time,
+                            insert_sql = ("INSERT INTO day_time (id, name, description,date, duration) "
+                                          "VALUES ('{}', '{}','{}','{}','{}')").format(User_id, name,"无", Current_time,
                                                                                   duration)
                             cursor.execute(insert_sql)
 
