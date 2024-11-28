@@ -17,7 +17,7 @@ def set_cache(key, value):
 # 获取缓存数据的函数
 def get_cache(key):
     if key in cache:
-        value = cache[key]
+        value = cache.pop(key)  # 先获取缓存，然后删除缓存
         print(f"获取缓存: {key} -> {value}")
         return value
     else:
