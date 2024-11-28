@@ -27,7 +27,7 @@ router = APIRouter()
 db_pool = MySQLConnectionPool()
 
 """
-创建一个线程池
+创建一个调度器线程，用于定时任务
 """
 
 
@@ -762,7 +762,7 @@ async def get_week_all_study_time(access_Token: dict = Depends(token.verify_toke
                                 WHEN WEEKDAY(CURDATE()) IN (0, 1, 2) THEN DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) + 4) DAY)
                                 ELSE DATE_SUB(CURDATE(), INTERVAL (WEEKDAY(CURDATE()) - 3) DAY)
                             END
-                            AND date <= CURDATE();
+                            AND date <= NOW();
                             """)
 
             week_time_records = cursor.fetchall()
@@ -973,6 +973,46 @@ async def delete_user(access_Token: dict = Depends(token.verify_token)):
     conn = db_pool.get_connection()  # 获取数据库连接
     # 获取用户id
     User_id = access_Token.get('sub')
+    try:
+        with conn.cursor() as cursor:
+            sql = "SELECT picture FROM user WHERE id = '{}'".format(User_id)
+            cursor.execute(sql)
+            result = cursor.fetchall()
+            # 删除用户
+
+            sql5 = "DELETE FROM user WHERE id = '{}'".format(User_id)
+            sql2 = "DELETE FROM sign_time WHERE id = '{}'".format(User_id)
+            sql3 = "DELETE FROM day_time WHERE id = '{}'".format(User_id)
+            sql4 = "DELETE FROM week_time WHERE id = '{}'".format(User_id)
+            cursor.execute(sql5)
+            cursor.execute(sql2)
+            cursor.execute(sql3)
+            cursor.execute(sql4)
+            # 删除头像(不存在没有头像的用户)
+            if result:
+                picture = result[0][0]
+                Bucket_name = "photo"
+                object_name = picture.split('/')[-1]
+                await Threading_await.delete_file_from_minion_bag(Bucket_name, object_name)
+                conn.commit()
+                return JSONResponse(content={"msg": True, "info": "删除成功", "status_code": 200})
+
+    except Exception as e:
+        conn.rollback()
+        return JSONResponse(content={"msg": False, "error": str(e), "status_code": 400})
+    finally:
+        db_pool.close_connection(conn)
+
+
+# 删除用户
+@router.delete("/delete_user_by_id", summary="删除用户", description="删除用户", tags=['咔咔'])
+async def delete_user_by_id(User_id: int):
+    """
+    删除用户
+    """
+
+    conn = db_pool.get_connection()  # 获取数据库连接
+
     try:
         with conn.cursor() as cursor:
             sql = "SELECT picture FROM user WHERE id = '{}'".format(User_id)
