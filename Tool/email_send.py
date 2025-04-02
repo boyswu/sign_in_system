@@ -1,5 +1,7 @@
 """
 发送邮件验证码
+功能：发送验证码到邮箱，并返回验证码
+
 """
 import smtplib
 import random

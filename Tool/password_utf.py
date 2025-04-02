@@ -1,5 +1,6 @@
 """
 密码加密模块
+加密规则：sha256加密
 """
 import hashlib
 

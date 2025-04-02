@@ -1,5 +1,16 @@
 """
+
+@Author: <boyswu>
+@Github: https://github.com/boyswu
+@Project: https://github.com/boyswu/sign_in_system
+
+
 用户端人脸登录系统
+功能：
+1. 人脸识别登录
+2. 签到系统
+3. 签出系统
+4. 退出系统
 
 """
 
@@ -130,6 +141,7 @@ class face_MainWindow(QtWidgets.QWidget, Ui_Form):
         self.face_frame.clear()  # 清空摄像头显示
         # 关闭窗口
         self.close()
+
 
 if __name__ == '__main__':
     import sys

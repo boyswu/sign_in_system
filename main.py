@@ -1,3 +1,6 @@
+"""
+    FastAPI 接口启动文件
+"""
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from Fastapi import fastapi_user

@@ -1,5 +1,6 @@
 """
 token模块
+用于生成和验证token
 """
 import jwt
 import datetime

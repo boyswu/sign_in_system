@@ -1,7 +1,11 @@
+"""
+    Fastapi_user.py
+    API接口：用户注册、登录、邮箱验证、修改密码相关接口
+"""
+
 import os
 import threading
 import random
-
 from decimal import Decimal, ROUND_DOWN
 from fastapi import Form, File, UploadFile, Depends, APIRouter
 from fastapi.responses import JSONResponse

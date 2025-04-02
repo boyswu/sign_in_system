@@ -1,5 +1,6 @@
 """
 缓存工具验证码和验证邮箱的缓存工具
+
 """
 
 from cachetools import TTLCache

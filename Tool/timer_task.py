@@ -1,3 +1,8 @@
+"""
+    定时任务
+    功能：每天0点执行签退任务，并发送警告邮件
+
+"""
 import schedule
 import time
 from connect_tool.sql import MySQLConnectionPool

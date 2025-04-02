@@ -1,8 +1,4 @@
-# encoding: utf-8
-# @author: DayDreamer
-# @file: minios.py
-# @time: 2024/6/4 21:29
-# @desc:
+
 """
 minion_bag模块主要用于处理minio相关的操作，包括创建桶、删除桶、上传文件、下载文件、获取文件列表、获取文件链接、获取文件大小等功能。
 """

@@ -1,3 +1,7 @@
+"""
+Recognizing faces in images using SeetaFace engine.
+
+"""
 from seetaface.api import *
 from connect_tool.sql import MySQLConnectionPool
 
