@@ -65,7 +65,6 @@ def send_warning_email(receiver_email):
     # 邮箱账号信息
     sender_email = "2976699191@qq.com"
     password = "lrqropzxnbmydcff"
-    security_code = generate_security_code()  # 使用随机生成的验证码
     # 创建邮件
     message = MIMEMultipart()
     nickname = "咔咔"  # 中文昵称
@@ -74,9 +73,9 @@ def send_warning_email(receiver_email):
     # 设置邮件头部
     message["From"] = f"{encoded_nickname} <{sender_email}>"
     message["To"] = receiver_email
-    message["Subject"] = f"咔咔 -签退警告：{security_code}"
+    message["Subject"] = f"咔咔 -签退警告"
     # 邮件正文
-    body = f"当天未进行签退操作，本次签到记录清零，予以警告并保留记录。此邮件为系统邮件，请勿回复。"
+    body = f"签退超时，本次签到记录清零，保留未签退记录,给予一次警告。此邮件为系统邮件，请勿回复。"
     message.attach(MIMEText(body, "plain"))
 
     # 连接到QQ邮箱的SMTP服务器
@@ -97,4 +96,4 @@ def send_warning_email(receiver_email):
     server.quit()
 
     print("邮件发送成功")
-    return security_code
+    return True
